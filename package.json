@@ -1,0 +1,8 @@
+{
+  "name": "com.reactivemarbles.dynamicdata",
+  "displayName": "DynamicData",
+  "version": "8.1.1",
+  "dependencies": {
+    "com.neuecc.unirx": "7.1.0"
+  }
+}
