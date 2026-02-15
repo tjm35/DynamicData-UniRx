@@ -4,21 +4,22 @@
 
 using System.Diagnostics.CodeAnalysis;
 
-namespace DynamicData;
-
-/// <summary>
-/// Options for sorting.
-/// </summary>
-[SuppressMessage("Design", "CA1717: Only flags should have plural names", Justification = "Backwards compatibility")]
-public enum SortOptions
+namespace DynamicData
 {
     /// <summary>
-    /// No sort options are specified.
+    /// Options for sorting.
     /// </summary>
-    None,
+    [SuppressMessage("Design", "CA1717: Only flags should have plural names", Justification = "Backwards compatibility")]
+    public enum SortOptions
+    {
+        /// <summary>
+        /// No sort options are specified.
+        /// </summary>
+        None,
 
-    /// <summary>
-    /// Use binary search to locate item index.
-    /// </summary>
-    UseBinarySearch
+        /// <summary>
+        /// Use binary search to locate item index.
+        /// </summary>
+        UseBinarySearch
+    }
 }

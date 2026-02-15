@@ -5,89 +5,90 @@
 using System;
 using System.Collections.Generic;
 
-namespace DynamicData.Kernel;
-
-/// <summary>
-/// Container for an item and it's Value from a list.
-/// </summary>
-/// <typeparam name="TObject">The type of the object.</typeparam>
-/// <typeparam name="TValue">The type of the value.</typeparam>
-public readonly struct ItemWithValue<TObject, TValue> : IEquatable<ItemWithValue<TObject, TValue>>
+namespace DynamicData.Kernel
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="ItemWithValue{TObject, TValue}"/> struct.
-    /// Initializes a new instance of the <see cref="ItemWithIndex{T}"/> class.
+    /// Container for an item and it's Value from a list.
     /// </summary>
-    /// <param name="item">The item.</param>
-    /// <param name="value">The Value.</param>
-    public ItemWithValue(TObject item, TValue value)
+    /// <typeparam name="TObject">The type of the object.</typeparam>
+    /// <typeparam name="TValue">The type of the value.</typeparam>
+    public readonly struct ItemWithValue<TObject, TValue> : IEquatable<ItemWithValue<TObject, TValue>>
     {
-        Item = item;
-        Value = value;
-    }
-
-    /// <summary>
-    /// Gets the item.
-    /// </summary>
-    public TObject Item { get; }
-
-    /// <summary>
-    /// Gets the Value.
-    /// </summary>
-    public TValue Value { get; }
-
-    /// <summary>
-    /// Implements the operator ==.
-    /// </summary>
-    /// <param name="left">The left.</param>
-    /// <param name="right">The right.</param>
-    /// <returns>
-    /// The result of the operator.
-    /// </returns>
-    public static bool operator ==(ItemWithValue<TObject, TValue> left, ItemWithValue<TObject, TValue> right)
-    {
-        return Equals(left, right);
-    }
-
-    /// <summary>
-    /// Implements the operator !=.
-    /// </summary>
-    /// <param name="left">The left.</param>
-    /// <param name="right">The right.</param>
-    /// <returns>
-    /// The result of the operator.
-    /// </returns>
-    public static bool operator !=(ItemWithValue<TObject, TValue> left, ItemWithValue<TObject, TValue> right)
-    {
-        return !Equals(left, right);
-    }
-
-    /// <inheritdoc />
-    public bool Equals(ItemWithValue<TObject, TValue> other)
-    {
-        return EqualityComparer<TObject>.Default.Equals(Item, other.Item) && EqualityComparer<TValue>.Default.Equals(Value, other.Value);
-    }
-
-    /// <inheritdoc />
-    public override bool Equals(object? obj)
-    {
-        if (ReferenceEquals(null, obj))
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ItemWithValue{TObject, TValue}"/> struct.
+        /// Initializes a new instance of the <see cref="ItemWithIndex{T}"/> class.
+        /// </summary>
+        /// <param name="item">The item.</param>
+        /// <param name="value">The Value.</param>
+        public ItemWithValue(TObject item, TValue value)
         {
-            return false;
+            Item = item;
+            Value = value;
         }
 
-        return obj is ItemWithValue<TObject, TValue> itemWithValue && Equals(itemWithValue);
-    }
+        /// <summary>
+        /// Gets the item.
+        /// </summary>
+        public TObject Item { get; }
 
-    /// <inheritdoc />
-    public override int GetHashCode()
-    {
-        unchecked
+        /// <summary>
+        /// Gets the Value.
+        /// </summary>
+        public TValue Value { get; }
+
+        /// <summary>
+        /// Implements the operator ==.
+        /// </summary>
+        /// <param name="left">The left.</param>
+        /// <param name="right">The right.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
+        public static bool operator ==(ItemWithValue<TObject, TValue> left, ItemWithValue<TObject, TValue> right)
         {
-            return (Item is null ? 0 : EqualityComparer<TObject>.Default.GetHashCode(Item) * 397) ^ (Value is null ? 0 : EqualityComparer<TValue>.Default.GetHashCode(Value));
+            return Equals(left, right);
         }
-    }
 
-    /// <inheritdoc />
-    public override string ToString() => $"{Item} ({Value})";
+        /// <summary>
+        /// Implements the operator !=.
+        /// </summary>
+        /// <param name="left">The left.</param>
+        /// <param name="right">The right.</param>
+        /// <returns>
+        /// The result of the operator.
+        /// </returns>
+        public static bool operator !=(ItemWithValue<TObject, TValue> left, ItemWithValue<TObject, TValue> right)
+        {
+            return !Equals(left, right);
+        }
+
+        /// <inheritdoc />
+        public bool Equals(ItemWithValue<TObject, TValue> other)
+        {
+            return EqualityComparer<TObject>.Default.Equals(Item, other.Item) && EqualityComparer<TValue>.Default.Equals(Value, other.Value);
+        }
+
+        /// <inheritdoc />
+        public override bool Equals(object? obj)
+        {
+            if (ReferenceEquals(null, obj))
+            {
+                return false;
+            }
+
+            return obj is ItemWithValue<TObject, TValue> itemWithValue && Equals(itemWithValue);
+        }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (Item is null ? 0 : EqualityComparer<TObject>.Default.GetHashCode(Item) * 397) ^ (Value is null ? 0 : EqualityComparer<TValue>.Default.GetHashCode(Value));
+            }
+        }
+
+        /// <inheritdoc />
+        public override string ToString() => $"{Item} ({Value})";
+    }
 }

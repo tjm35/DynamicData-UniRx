@@ -5,18 +5,19 @@
 using DynamicData.Operators;
 
 // ReSharper disable once CheckNamespace
-namespace DynamicData;
-
-/// <summary>
-/// Represents a paged subset of data reduced by a defined set of parameters
-/// Changes are always published in the order.
-/// </summary>
-/// <typeparam name="T">The type of the object.</typeparam>
-public interface IPageChangeSet<T> : IChangeSet<T>
-    where T : notnull
+namespace DynamicData
 {
     /// <summary>
-    /// Gets the parameters used to virtualise the stream.
+    /// Represents a paged subset of data reduced by a defined set of parameters
+    /// Changes are always published in the order.
     /// </summary>
-    IPageResponse Response { get; }
+    /// <typeparam name="T">The type of the object.</typeparam>
+    public interface IPageChangeSet<T> : IChangeSet<T>
+        where T : notnull
+    {
+        /// <summary>
+        /// Gets the parameters used to virtualise the stream.
+        /// </summary>
+        IPageResponse Response { get; }
+    }
 }

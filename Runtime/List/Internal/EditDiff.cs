@@ -8,34 +8,35 @@ using System.Linq;
 
 using DynamicData.Kernel;
 
-namespace DynamicData.List.Internal;
-
-internal class EditDiff<T>
-    where T : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly IEqualityComparer<T> _equalityComparer;
-
-    private readonly ISourceList<T> _source;
-
-    public EditDiff(ISourceList<T> source, IEqualityComparer<T>? equalityComparer)
+    internal class EditDiff<T>
+        where T : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _equalityComparer = equalityComparer ?? EqualityComparer<T>.Default;
-    }
+        private readonly IEqualityComparer<T> _equalityComparer;
 
-    public void Edit(IEnumerable<T> items)
-    {
-        _source.Edit(
-            innerList =>
-            {
-                var originalItems = innerList.AsArray();
-                var newItems = items.AsArray();
+        private readonly ISourceList<T> _source;
 
-                var removes = originalItems.Except(newItems, _equalityComparer);
-                var adds = newItems.Except(originalItems, _equalityComparer);
+        public EditDiff(ISourceList<T> source, IEqualityComparer<T>? equalityComparer)
+        {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _equalityComparer = equalityComparer ?? EqualityComparer<T>.Default;
+        }
 
-                innerList.Remove(removes);
-                innerList.AddRange(adds);
-            });
+        public void Edit(IEnumerable<T> items)
+        {
+            _source.Edit(
+                innerList =>
+                {
+                    var originalItems = innerList.AsArray();
+                    var newItems = items.AsArray();
+
+                    var removes = originalItems.Except(newItems, _equalityComparer);
+                    var adds = newItems.Except(originalItems, _equalityComparer);
+
+                    innerList.Remove(removes);
+                    innerList.AddRange(adds);
+                });
+        }
     }
 }

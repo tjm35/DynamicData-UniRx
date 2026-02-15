@@ -8,78 +8,79 @@ using System.Diagnostics;
 using DynamicData.Kernel;
 
 // ReSharper disable once CheckNamespace
-namespace DynamicData;
-
-/// <summary>
-/// Cache designed to be used for custom operator construction. It requires no key to be specified
-/// but instead relies on the user specifying the key when amending data.
-/// </summary>
-/// <typeparam name="TObject">The type of the object.</typeparam>
-/// <typeparam name="TKey">The type of the key.</typeparam>
-[DebuggerDisplay("IntermediateCache<{typeof(TObject).Name}, {typeof(TKey).Name}> ({Count} Items)")]
-public sealed class IntermediateCache<TObject, TKey> : IIntermediateCache<TObject, TKey>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData
 {
-    private readonly ObservableCache<TObject, TKey> _innerCache;
-
     /// <summary>
-    /// Initializes a new instance of the <see cref="IntermediateCache{TObject, TKey}"/> class.
+    /// Cache designed to be used for custom operator construction. It requires no key to be specified
+    /// but instead relies on the user specifying the key when amending data.
     /// </summary>
-    /// <param name="source">The source.</param>
-    /// <exception cref="System.ArgumentNullException">source.</exception>
-    public IntermediateCache(IObservable<IChangeSet<TObject, TKey>> source)
+    /// <typeparam name="TObject">The type of the object.</typeparam>
+    /// <typeparam name="TKey">The type of the key.</typeparam>
+    [DebuggerDisplay("IntermediateCache<{typeof(TObject).Name}, {typeof(TKey).Name}> ({Count} Items)")]
+    public sealed class IntermediateCache<TObject, TKey> : IIntermediateCache<TObject, TKey>
+        where TObject : notnull
+        where TKey : notnull
     {
-        if (source is null)
+        private readonly ObservableCache<TObject, TKey> _innerCache;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IntermediateCache{TObject, TKey}"/> class.
+        /// </summary>
+        /// <param name="source">The source.</param>
+        /// <exception cref="System.ArgumentNullException">source.</exception>
+        public IntermediateCache(IObservable<IChangeSet<TObject, TKey>> source)
         {
-            throw new ArgumentNullException(nameof(source));
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            _innerCache = new ObservableCache<TObject, TKey>(source);
         }
 
-        _innerCache = new ObservableCache<TObject, TKey>(source);
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IntermediateCache{TObject, TKey}"/> class.
+        /// </summary>
+        public IntermediateCache()
+        {
+            _innerCache = new ObservableCache<TObject, TKey>();
+        }
+
+        /// <inheritdoc />
+        public int Count => _innerCache.Count;
+
+        /// <inheritdoc />
+        public IObservable<int> CountChanged => _innerCache.CountChanged;
+
+        /// <inheritdoc />
+        public IEnumerable<TObject> Items => _innerCache.Items;
+
+        /// <inheritdoc />
+        public IEnumerable<TKey> Keys => _innerCache.Keys;
+
+        /// <inheritdoc />
+        public IEnumerable<KeyValuePair<TKey, TObject>> KeyValues => _innerCache.KeyValues;
+
+        /// <inheritdoc />
+        public IObservable<IChangeSet<TObject, TKey>> Connect(Func<TObject, bool>? predicate = null, bool suppressEmptyChangeSets = true)
+            => _innerCache.Connect(predicate, suppressEmptyChangeSets);
+
+        /// <inheritdoc />
+        public void Dispose() => _innerCache.Dispose();
+
+        /// <inheritdoc />
+        public void Edit(Action<ICacheUpdater<TObject, TKey>> updateAction) => _innerCache.UpdateFromIntermediate(updateAction);
+
+        /// <inheritdoc />
+        public Optional<TObject> Lookup(TKey key) => _innerCache.Lookup(key);
+
+        /// <inheritdoc />
+        public IObservable<IChangeSet<TObject, TKey>> Preview(Func<TObject, bool>? predicate = null)
+            => _innerCache.Preview(predicate);
+
+        /// <inheritdoc />
+        public IObservable<Change<TObject, TKey>> Watch(TKey key) => _innerCache.Watch(key);
+
+        internal IChangeSet<TObject, TKey> GetInitialUpdates(Func<TObject, bool>? filter = null) => _innerCache.GetInitialUpdates(filter);
     }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="IntermediateCache{TObject, TKey}"/> class.
-    /// </summary>
-    public IntermediateCache()
-    {
-        _innerCache = new ObservableCache<TObject, TKey>();
-    }
-
-    /// <inheritdoc />
-    public int Count => _innerCache.Count;
-
-    /// <inheritdoc />
-    public IObservable<int> CountChanged => _innerCache.CountChanged;
-
-    /// <inheritdoc />
-    public IEnumerable<TObject> Items => _innerCache.Items;
-
-    /// <inheritdoc />
-    public IEnumerable<TKey> Keys => _innerCache.Keys;
-
-    /// <inheritdoc />
-    public IEnumerable<KeyValuePair<TKey, TObject>> KeyValues => _innerCache.KeyValues;
-
-    /// <inheritdoc />
-    public IObservable<IChangeSet<TObject, TKey>> Connect(Func<TObject, bool>? predicate = null, bool suppressEmptyChangeSets = true)
-        => _innerCache.Connect(predicate, suppressEmptyChangeSets);
-
-    /// <inheritdoc />
-    public void Dispose() => _innerCache.Dispose();
-
-    /// <inheritdoc />
-    public void Edit(Action<ICacheUpdater<TObject, TKey>> updateAction) => _innerCache.UpdateFromIntermediate(updateAction);
-
-    /// <inheritdoc />
-    public Optional<TObject> Lookup(TKey key) => _innerCache.Lookup(key);
-
-    /// <inheritdoc />
-    public IObservable<IChangeSet<TObject, TKey>> Preview(Func<TObject, bool>? predicate = null)
-        => _innerCache.Preview(predicate);
-
-    /// <inheritdoc />
-    public IObservable<Change<TObject, TKey>> Watch(TKey key) => _innerCache.Watch(key);
-
-    internal IChangeSet<TObject, TKey> GetInitialUpdates(Func<TObject, bool>? filter = null) => _innerCache.GetInitialUpdates(filter);
 }

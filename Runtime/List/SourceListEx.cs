@@ -5,37 +5,38 @@
 using System;
 
 // ReSharper disable once CheckNamespace
-namespace DynamicData;
-
-/// <summary>
-/// Source list extensions.
-/// </summary>
-public static class SourceListEx
+namespace DynamicData
 {
     /// <summary>
-    /// Connects to the list, and converts the changes to another form
-    ///
-    /// Alas, I had to add the converter due to type inference issues.
+    /// Source list extensions.
     /// </summary>
-    /// <typeparam name="TSource">The type of the object.</typeparam>
-    /// <typeparam name="TDestination">The type of the destination.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <param name="conversionFactory">The conversion factory.</param>
-    /// <returns>An observable which emits that change set.</returns>
-    public static IObservable<IChangeSet<TDestination>> Cast<TSource, TDestination>(this ISourceList<TSource> source, Func<TSource, TDestination> conversionFactory)
-        where TSource : notnull
-        where TDestination : notnull
+    public static class SourceListEx
     {
-        if (source is null)
+        /// <summary>
+        /// Connects to the list, and converts the changes to another form
+        ///
+        /// Alas, I had to add the converter due to type inference issues.
+        /// </summary>
+        /// <typeparam name="TSource">The type of the object.</typeparam>
+        /// <typeparam name="TDestination">The type of the destination.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <param name="conversionFactory">The conversion factory.</param>
+        /// <returns>An observable which emits that change set.</returns>
+        public static IObservable<IChangeSet<TDestination>> Cast<TSource, TDestination>(this ISourceList<TSource> source, Func<TSource, TDestination> conversionFactory)
+            where TSource : notnull
+            where TDestination : notnull
         {
-            throw new ArgumentNullException(nameof(source));
-        }
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
 
-        if (conversionFactory is null)
-        {
-            throw new ArgumentNullException(nameof(conversionFactory));
-        }
+            if (conversionFactory is null)
+            {
+                throw new ArgumentNullException(nameof(conversionFactory));
+            }
 
-        return source.Connect().Cast(conversionFactory);
+            return source.Connect().Cast(conversionFactory);
+        }
     }
 }

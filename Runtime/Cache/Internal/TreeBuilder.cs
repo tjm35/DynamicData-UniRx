@@ -4,87 +4,83 @@
 
 using System;
 using System.Linq;
-using System.Reactive;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.Cache.Internal;
-
-internal class TreeBuilder<TObject, TKey>
-    where TObject : class
-    where TKey : notnull
+namespace DynamicData.Cache.Internal
 {
-    private readonly Func<TObject, TKey> _pivotOn;
-
-    private readonly IObservable<Func<Node<TObject, TKey>, bool>> _predicateChanged;
-
-    private readonly IObservable<IChangeSet<TObject, TKey>> _source;
-
-    public TreeBuilder(IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, TKey> pivotOn, IObservable<Func<Node<TObject, TKey>, bool>>? predicateChanged)
+    internal class TreeBuilder<TObject, TKey>
+        where TObject : class
+        where TKey : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _pivotOn = pivotOn ?? throw new ArgumentNullException(nameof(pivotOn));
-        _predicateChanged = predicateChanged ?? Observable.Return(DefaultPredicate);
-    }
+        private readonly Func<TObject, TKey> _pivotOn;
 
-    private static Func<Node<TObject, TKey>, bool> DefaultPredicate => node => node.IsRoot;
+        private readonly IObservable<Func<Node<TObject, TKey>, bool>> _predicateChanged;
 
-    public IObservable<IChangeSet<Node<TObject, TKey>, TKey>> Run()
-    {
-        return Observable.Create<IChangeSet<Node<TObject, TKey>, TKey>>(
-            observer =>
-            {
-                var locker = new object();
-                var reFilterObservable = new BehaviorSubject<Unit>(Unit.Default);
+        private readonly IObservable<IChangeSet<TObject, TKey>> _source;
 
-                var allData = _source.Synchronize(locker).AsObservableCache();
+        public TreeBuilder(IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, TKey> pivotOn, IObservable<Func<Node<TObject, TKey>, bool>>? predicateChanged)
+        {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _pivotOn = pivotOn ?? throw new ArgumentNullException(nameof(pivotOn));
+            _predicateChanged = predicateChanged ?? Observable.Return(DefaultPredicate);
+        }
 
-                // for each object we need a node which provides
-                // a structure to set the parent and children
-                var allNodes = allData.Connect().Synchronize(locker).Transform((t, v) => new Node<TObject, TKey>(t, v)).AsObservableCache();
+        private static Func<Node<TObject, TKey>, bool> DefaultPredicate => node => node.IsRoot;
 
-                var groupedByPivot = allNodes.Connect().Synchronize(locker).Group(x => _pivotOn(x.Item)).AsObservableCache();
-
-                void UpdateChildren(Node<TObject, TKey> parentNode)
+        public IObservable<IChangeSet<Node<TObject, TKey>, TKey>> Run()
+        {
+            return Observable.Create<IChangeSet<Node<TObject, TKey>, TKey>>(
+                observer =>
                 {
-                    var lookup = groupedByPivot.Lookup(parentNode.Key);
-                    if (lookup.HasValue && lookup.Value is not null)
-                    {
-                        var children = lookup.Value.Cache.Items;
-                        parentNode.Update(u => u.AddOrUpdate(children));
-                        children.ForEach(x => x.Parent = parentNode);
-                    }
-                }
+                    var locker = new object();
+                    var reFilterObservable = new BehaviorSubject<Unit>(Unit.Default);
 
-                // as nodes change, maintain parent and children
-                var parentSetter = allNodes.Connect().Do(
-                    changes =>
+                    var allData = _source.Synchronize(locker).AsObservableCache();
+
+                    // for each object we need a node which provides
+                    // a structure to set the parent and children
+                    var allNodes = allData.Connect().Synchronize(locker).Transform((t, v) => new Node<TObject, TKey>(t, v)).AsObservableCache();
+
+                    var groupedByPivot = allNodes.Connect().Synchronize(locker).Group(x => _pivotOn(x.Item)).AsObservableCache();
+
+                    void UpdateChildren(Node<TObject, TKey> parentNode)
                     {
-                        foreach (var group in changes.GroupBy(c => _pivotOn(c.Current.Item)))
+                        var lookup = groupedByPivot.Lookup(parentNode.Key);
+                        if (lookup.HasValue && lookup.Value is not null)
                         {
-                            var parentKey = group.Key;
-                            var parent = allNodes.Lookup(parentKey);
+                            var children = lookup.Value.Cache.Items;
+                            parentNode.Update(u => u.AddOrUpdate(children));
+                            children.ForEach(x => x.Parent = parentNode);
+                        }
+                    }
 
-                            if (!parent.HasValue)
+                    // as nodes change, maintain parent and children
+                    var parentSetter = allNodes.Connect().Do(
+                        changes =>
+                        {
+                            foreach (var group in changes.GroupBy(c => _pivotOn(c.Current.Item)))
                             {
-                                // deal with items which have no parent
-                                foreach (var change in group)
+                                var parentKey = group.Key;
+                                var parent = allNodes.Lookup(parentKey);
+
+                                if (!parent.HasValue)
                                 {
-                                    if (change.Reason != ChangeReason.Refresh)
+                                    // deal with items which have no parent
+                                    foreach (var change in group)
                                     {
-                                        change.Current.Parent = null;
-                                    }
+                                        if (change.Reason != ChangeReason.Refresh)
+                                        {
+                                            change.Current.Parent = null;
+                                        }
 
-                                    switch (change.Reason)
-                                    {
-                                        case ChangeReason.Add:
-                                            UpdateChildren(change.Current);
-                                            break;
+                                        switch (change.Reason)
+                                        {
+                                            case ChangeReason.Add:
+                                                UpdateChildren(change.Current);
+                                                break;
 
-                                        case ChangeReason.Update:
+                                            case ChangeReason.Update:
                                             {
                                                 // copy children to the new node amd set parent
                                                 var children = change.Previous.Value.Children.Items;
@@ -103,7 +99,7 @@ internal class TreeBuilder<TObject, TKey>
                                                 break;
                                             }
 
-                                        case ChangeReason.Remove:
+                                            case ChangeReason.Remove:
                                             {
                                                 // remove children and null out parent
                                                 var children = change.Current.Children.Items;
@@ -113,7 +109,7 @@ internal class TreeBuilder<TObject, TKey>
                                                 break;
                                             }
 
-                                        case ChangeReason.Refresh:
+                                            case ChangeReason.Refresh:
                                             {
                                                 var previousParent = change.Current.Parent;
                                                 if (!previousParent.Equals(parent))
@@ -124,26 +120,26 @@ internal class TreeBuilder<TObject, TKey>
 
                                                 break;
                                             }
+                                        }
                                     }
                                 }
-                            }
-                            else
-                            {
-                                // deal with items have a parent
-                                parent.Value.Update(
-                                    updater =>
-                                    {
-                                        var p = parent.Value;
-
-                                        foreach (var change in group)
+                                else
+                                {
+                                    // deal with items have a parent
+                                    parent.Value.Update(
+                                        updater =>
                                         {
-                                            var previous = change.Previous;
-                                            var node = change.Current;
-                                            var key = node.Key;
+                                            var p = parent.Value;
 
-                                            switch (change.Reason)
+                                            foreach (var change in group)
                                             {
-                                                case ChangeReason.Add:
+                                                var previous = change.Previous;
+                                                var node = change.Current;
+                                                var key = node.Key;
+
+                                                switch (change.Reason)
+                                                {
+                                                    case ChangeReason.Add:
                                                     {
                                                         // update the parent node
                                                         node.Parent = p;
@@ -153,7 +149,7 @@ internal class TreeBuilder<TObject, TKey>
                                                         break;
                                                     }
 
-                                                case ChangeReason.Update:
+                                                    case ChangeReason.Update:
                                                     {
                                                         // copy children to the new node amd set parent
                                                         var children = previous.Value.Children.Items;
@@ -177,7 +173,7 @@ internal class TreeBuilder<TObject, TKey>
                                                         break;
                                                     }
 
-                                                case ChangeReason.Remove:
+                                                    case ChangeReason.Remove:
                                                     {
                                                         node.Parent = null;
                                                         updater.Remove(key);
@@ -189,7 +185,7 @@ internal class TreeBuilder<TObject, TKey>
                                                         break;
                                                     }
 
-                                                case ChangeReason.Refresh:
+                                                    case ChangeReason.Refresh:
                                                     {
                                                         var previousParent = change.Current.Parent;
                                                         if (!previousParent.Equals(parent))
@@ -201,28 +197,29 @@ internal class TreeBuilder<TObject, TKey>
 
                                                         break;
                                                     }
+                                                }
                                             }
-                                        }
-                                    });
+                                        });
+                                }
                             }
-                        }
 
-                        reFilterObservable.OnNext(Unit.Default);
-                    }).DisposeMany().Subscribe();
+                            reFilterObservable.OnNext(Unit.Default);
+                        }).DisposeMany().Subscribe();
 
-                var filter = _predicateChanged.Synchronize(locker).CombineLatest(reFilterObservable, (predicate, _) => predicate);
-                var result = allNodes.Connect().Filter(filter).SubscribeSafe(observer);
+                    var filter = _predicateChanged.Synchronize(locker).CombineLatest(reFilterObservable, (predicate, _) => predicate);
+                    var result = allNodes.Connect().Filter(filter).SubscribeSafe(observer);
 
-                return Disposable.Create(
-                    () =>
-                    {
-                        result.Dispose();
-                        parentSetter.Dispose();
-                        allData.Dispose();
-                        allNodes.Dispose();
-                        groupedByPivot.Dispose();
-                        reFilterObservable.OnCompleted();
-                    });
-            });
+                    return Disposable.Create(
+                        () =>
+                        {
+                            result.Dispose();
+                            parentSetter.Dispose();
+                            allData.Dispose();
+                            allNodes.Dispose();
+                            groupedByPivot.Dispose();
+                            reFilterObservable.OnCompleted();
+                        });
+                });
+        }
     }
 }

@@ -5,24 +5,25 @@
 using System;
 using System.Diagnostics;
 using System.Linq.Expressions;
-using System.Reactive;
+using UniRx;
 
-namespace DynamicData.Binding;
-
-[DebuggerDisplay("ObservablePropertyPart<{" + nameof(_expression) + "}>")]
-internal sealed class ObservablePropertyPart
+namespace DynamicData.Binding
 {
-    // ReSharper disable once NotAccessedField.Local
-    private readonly MemberExpression _expression;
-
-    public ObservablePropertyPart(MemberExpression expression)
+    [DebuggerDisplay("ObservablePropertyPart<{" + nameof(_expression) + "}>")]
+    internal sealed class ObservablePropertyPart
     {
-        _expression = expression;
-        Factory = expression.CreatePropertyChangedFactory();
-        Accessor = expression.CreateValueAccessor();
+        // ReSharper disable once NotAccessedField.Local
+        private readonly MemberExpression _expression;
+
+        public ObservablePropertyPart(MemberExpression expression)
+        {
+            _expression = expression;
+            Factory = expression.CreatePropertyChangedFactory();
+            Accessor = expression.CreateValueAccessor();
+        }
+
+        public Func<object, object> Accessor { get; }
+
+        public Func<object, IObservable<Unit>> Factory { get; }
     }
-
-    public Func<object, object> Accessor { get; }
-
-    public Func<object, IObservable<Unit>> Factory { get; }
 }

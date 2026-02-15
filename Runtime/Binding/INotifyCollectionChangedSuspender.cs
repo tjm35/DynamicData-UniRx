@@ -4,22 +4,23 @@
 
 using System;
 
-namespace DynamicData.Binding;
-
-/// <summary>
-/// Represents an observable collection where collection changed and count notifications can be suspended.
-/// </summary>
-public interface INotifyCollectionChangedSuspender
+namespace DynamicData.Binding
 {
     /// <summary>
-    /// Suspends count notifications.
+    /// Represents an observable collection where collection changed and count notifications can be suspended.
     /// </summary>
-    /// <returns>A disposable which when disposed re-activates count notifications.</returns>
-    IDisposable SuspendCount();
+    public interface INotifyCollectionChangedSuspender
+    {
+        /// <summary>
+        /// Suspends count notifications.
+        /// </summary>
+        /// <returns>A disposable which when disposed re-activates count notifications.</returns>
+        IDisposable SuspendCount();
 
-    /// <summary>
-    /// Suspends notifications. When disposed, a reset notification is fired.
-    /// </summary>
-    /// <returns>A disposable which when disposed re-activates notifications.</returns>
-    IDisposable SuspendNotifications();
+        /// <summary>
+        /// Suspends notifications. When disposed, a reset notification is fired.
+        /// </summary>
+        /// <returns>A disposable which when disposed re-activates notifications.</returns>
+        IDisposable SuspendNotifications();
+    }
 }

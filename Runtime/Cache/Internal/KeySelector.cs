@@ -5,29 +5,30 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 
-namespace DynamicData.Cache.Internal;
-
-internal sealed class KeySelector<TObject, TKey> : IKeySelector<TObject, TKey>
+namespace DynamicData.Cache.Internal
 {
-    private readonly Func<TObject, TKey> _keySelector;
-
-    public KeySelector(Func<TObject, TKey> keySelector)
+    internal sealed class KeySelector<TObject, TKey> : IKeySelector<TObject, TKey>
     {
-        _keySelector = keySelector ?? throw new ArgumentNullException(nameof(keySelector));
-    }
+        private readonly Func<TObject, TKey> _keySelector;
 
-    [SuppressMessage("Design", "CA1822: Member can be static", Justification = "Backwards compatibilty")]
-    public Type Type => typeof(TObject);
-
-    public TKey GetKey(TObject item)
-    {
-        try
+        public KeySelector(Func<TObject, TKey> keySelector)
         {
-            return _keySelector(item);
+            _keySelector = keySelector ?? throw new ArgumentNullException(nameof(keySelector));
         }
-        catch (Exception ex)
+
+        [SuppressMessage("Design", "CA1822: Member can be static", Justification = "Backwards compatibilty")]
+        public Type Type => typeof(TObject);
+
+        public TKey GetKey(TObject item)
         {
-            throw new KeySelectorException("Error returning key", ex);
+            try
+            {
+                return _keySelector(item);
+            }
+            catch (Exception ex)
+            {
+                throw new KeySelectorException("Error returning key", ex);
+            }
         }
     }
 }

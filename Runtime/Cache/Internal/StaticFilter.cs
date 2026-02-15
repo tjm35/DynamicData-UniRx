@@ -3,43 +3,44 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Reactive.Linq;
+using UniRx;
 
-namespace DynamicData.Cache.Internal;
-
-internal class StaticFilter<TObject, TKey>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData.Cache.Internal
 {
-    private readonly Func<TObject, bool> _filter;
-    private readonly bool _suppressEmptyChangeSets;
-
-    private readonly IObservable<IChangeSet<TObject, TKey>> _source;
-
-    public StaticFilter(IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, bool> filter, bool suppressEmptyChangeSets)
+    internal class StaticFilter<TObject, TKey>
+        where TObject : notnull
+        where TKey : notnull
     {
-        _source = source;
-        _filter = filter;
-        _suppressEmptyChangeSets = suppressEmptyChangeSets;
-    }
+        private readonly Func<TObject, bool> _filter;
+        private readonly bool _suppressEmptyChangeSets;
 
-    public IObservable<IChangeSet<TObject, TKey>> Run()
-    {
-        return Observable.Create<IChangeSet<TObject, TKey>>(observer =>
+        private readonly IObservable<IChangeSet<TObject, TKey>> _source;
+
+        public StaticFilter(IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, bool> filter, bool suppressEmptyChangeSets)
         {
-            ChangeAwareCache<TObject, TKey>? cache = null;
+            _source = source;
+            _filter = filter;
+            _suppressEmptyChangeSets = suppressEmptyChangeSets;
+        }
 
-            return _source.Subscribe(changes =>
+        public IObservable<IChangeSet<TObject, TKey>> Run()
+        {
+            return Observable.Create<IChangeSet<TObject, TKey>>(observer =>
             {
-                cache ??= new ChangeAwareCache<TObject, TKey>(changes.Count);
+                ChangeAwareCache<TObject, TKey>? cache = null;
 
-                cache.FilterChanges(changes, _filter);
-                var filtered = cache.CaptureChanges();
+                return _source.Subscribe(changes =>
+                {
+                    cache ??= new ChangeAwareCache<TObject, TKey>(changes.Count);
 
-                if (filtered.Count != 0 || !_suppressEmptyChangeSets)
-                    observer.OnNext(filtered);
+                    cache.FilterChanges(changes, _filter);
+                    var filtered = cache.CaptureChanges();
 
-            }, observer.OnError, observer.OnCompleted);
-        });
+                    if (filtered.Count != 0 || !_suppressEmptyChangeSets)
+                        observer.OnNext(filtered);
+
+                }, observer.OnError, observer.OnCompleted);
+            });
+        }
     }
 }

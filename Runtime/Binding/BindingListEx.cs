@@ -2,37 +2,38 @@
 // Roland Pheasant licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Reactive;
-using System.Reactive.Linq;
+using UniRx;
 
-namespace DynamicData.Binding;
-
-/// <summary>
-/// Extensions to convert an binding list into a dynamic stream.
-/// </summary>
-public static class BindingListEx
+namespace DynamicData.Binding
 {
-    internal static void Clone<T>(this BindingList<T> source, IEnumerable<Change<T>> changes)
-        where T : notnull
+    /// <summary>
+    /// Extensions to convert an binding list into a dynamic stream.
+    /// </summary>
+    public static class BindingListEx
     {
-        // ** Copied from ListEx for binding list specific changes
-        if (source is null) throw new ArgumentNullException(nameof(source));
-        if (changes is null) throw new ArgumentNullException(nameof(changes));
-
-        foreach (var item in changes)
+        internal static void Clone<T>(this BindingList<T> source, IEnumerable<Change<T>> changes)
+            where T : notnull
         {
-            source.Clone(item, EqualityComparer<T>.Default);
+            // ** Copied from ListEx for binding list specific changes
+            if (source is null) throw new ArgumentNullException(nameof(source));
+            if (changes is null) throw new ArgumentNullException(nameof(changes));
+
+            foreach (var item in changes)
+            {
+                source.Clone(item, EqualityComparer<T>.Default);
+            }
         }
-    }
 
-    private static void Clone<T>(this BindingList<T> source, Change<T> item, IEqualityComparer<T> equalityComparer)
-        where T : notnull
-    {
-        switch (item.Reason)
+        private static void Clone<T>(this BindingList<T> source, Change<T> item, IEqualityComparer<T> equalityComparer)
+            where T : notnull
         {
-            case ListChangeReason.Add:
+            switch (item.Reason)
+            {
+                case ListChangeReason.Add:
                 {
                     var change = item.Item;
                     var hasIndex = change.CurrentIndex >= 0;
@@ -48,19 +49,19 @@ public static class BindingListEx
                     break;
                 }
 
-            case ListChangeReason.AddRange:
+                case ListChangeReason.AddRange:
                 {
                     source.AddOrInsertRange(item.Range, item.Range.Index);
                     break;
                 }
 
-            case ListChangeReason.Clear:
+                case ListChangeReason.Clear:
                 {
                     source.ClearOrRemoveMany(item);
                     break;
                 }
 
-            case ListChangeReason.Replace:
+                case ListChangeReason.Replace:
                 {
                     var change = item.Item;
                     if (change.CurrentIndex >= 0 && change.CurrentIndex == change.PreviousIndex)
@@ -92,7 +93,7 @@ public static class BindingListEx
                     break;
                 }
 
-            case ListChangeReason.Refresh:
+                case ListChangeReason.Refresh:
                 {
                     var index = source.IndexOf(item.Item.Current);
                     if (index != -1)
@@ -100,7 +101,7 @@ public static class BindingListEx
                     break;
                 }
 
-            case ListChangeReason.Remove:
+                case ListChangeReason.Remove:
                 {
                     var change = item.Item;
                     var hasIndex = change.CurrentIndex >= 0;
@@ -120,13 +121,13 @@ public static class BindingListEx
                     break;
                 }
 
-            case ListChangeReason.RemoveRange:
+                case ListChangeReason.RemoveRange:
                 {
                     source.RemoveMany(item.Range);
                     break;
                 }
 
-            case ListChangeReason.Moved:
+                case ListChangeReason.Moved:
                 {
                     var change = item.Item;
                     var hasIndex = change.CurrentIndex >= 0;
@@ -152,104 +153,104 @@ public static class BindingListEx
 
                     break;
                 }
+            }
         }
-    }
 
-    /// <summary>
-    /// Observes list changed args.
-    /// </summary>
-    /// <param name="source">The source list.</param>
-    /// <returns>An observable which emits event pattern changed event args.</returns>
-    public static IObservable<EventPattern<ListChangedEventArgs>> ObserveCollectionChanges(this IBindingList source)
-    {
-        return Observable.FromEventPattern<ListChangedEventHandler, ListChangedEventArgs>(h => source.ListChanged += h, h => source.ListChanged -= h);
-    }
-
-    /// <summary>
-    /// Convert a binding list into an observable change set.
-    /// Change set observes list change events.
-    /// </summary>
-    /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <returns>An observable which emits change set values.</returns>
-    /// <exception cref="System.ArgumentNullException">source.</exception>
-    public static IObservable<IChangeSet<T>> ToObservableChangeSet<T>(this BindingList<T> source)
-        where T : notnull
-    {
-        if (source is null)
+        /// <summary>
+        /// Observes list changed args.
+        /// </summary>
+        /// <param name="source">The source list.</param>
+        /// <returns>An observable which emits event pattern changed event args.</returns>
+        public static IObservable<EventPattern<ListChangedEventArgs>> ObserveCollectionChanges(this IBindingList source)
         {
-            throw new ArgumentNullException(nameof(source));
+            return Observable.FromEventPattern<ListChangedEventHandler, ListChangedEventArgs>(eh => (o,a) => eh(o,a), h => source.ListChanged += h, h => source.ListChanged -= h);
         }
 
-        return ToObservableChangeSet<BindingList<T>, T>(source);
-    }
-
-    /// <summary>
-    /// Convert a binding list into an observable change set.
-    /// Change set observes list change events.
-    /// </summary>
-    /// <typeparam name="TObject">The type of the object.</typeparam>
-    /// <typeparam name="TKey">The type of the key.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <param name="keySelector">The key selector.</param>
-    /// <returns>An observable which emits change set values.</returns>
-    /// <exception cref="System.ArgumentNullException">source
-    /// or
-    /// keySelector.</exception>
-    public static IObservable<IChangeSet<TObject, TKey>> ToObservableChangeSet<TObject, TKey>(this BindingList<TObject> source, Func<TObject, TKey> keySelector)
-        where TObject : notnull
-        where TKey : notnull
-    {
-        if (source is null)
+        /// <summary>
+        /// Convert a binding list into an observable change set.
+        /// Change set observes list change events.
+        /// </summary>
+        /// <typeparam name="T">The type of the object.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <returns>An observable which emits change set values.</returns>
+        /// <exception cref="System.ArgumentNullException">source.</exception>
+        public static IObservable<IChangeSet<T>> ToObservableChangeSet<T>(this BindingList<T> source)
+            where T : notnull
         {
-            throw new ArgumentNullException(nameof(source));
-        }
-
-        if (keySelector is null)
-        {
-            throw new ArgumentNullException(nameof(keySelector));
-        }
-
-        return ToObservableChangeSet<BindingList<TObject>, TObject>(source).AddKey(keySelector);
-    }
-
-    /// <summary>
-    /// Convert a binding list into an observable change set.
-    /// Change set observes list change events.
-    /// </summary>
-    /// <typeparam name="TCollection">The collection type.</typeparam>
-    /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <returns>An observable which emits change set values.</returns>
-    /// <exception cref="System.ArgumentNullException">source.</exception>
-    public static IObservable<IChangeSet<T>> ToObservableChangeSet<TCollection, T>(this TCollection source)
-        where TCollection : IBindingList, IEnumerable<T>
-        where T : notnull
-    {
-        if (source is null)
-        {
-            throw new ArgumentNullException(nameof(source));
-        }
-
-        return Observable.Create<IChangeSet<T>>(
-            observer =>
+            if (source is null)
             {
-                var data = new ChangeAwareList<T>(source);
+                throw new ArgumentNullException(nameof(source));
+            }
 
-                if (data.Count > 0)
+            return ToObservableChangeSet<BindingList<T>, T>(source);
+        }
+
+        /// <summary>
+        /// Convert a binding list into an observable change set.
+        /// Change set observes list change events.
+        /// </summary>
+        /// <typeparam name="TObject">The type of the object.</typeparam>
+        /// <typeparam name="TKey">The type of the key.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <param name="keySelector">The key selector.</param>
+        /// <returns>An observable which emits change set values.</returns>
+        /// <exception cref="System.ArgumentNullException">source
+        /// or
+        /// keySelector.</exception>
+        public static IObservable<IChangeSet<TObject, TKey>> ToObservableChangeSet<TObject, TKey>(this BindingList<TObject> source, Func<TObject, TKey> keySelector)
+            where TObject : notnull
+            where TKey : notnull
+        {
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (keySelector is null)
+            {
+                throw new ArgumentNullException(nameof(keySelector));
+            }
+
+            return ToObservableChangeSet<BindingList<TObject>, TObject>(source).AddKey(keySelector);
+        }
+
+        /// <summary>
+        /// Convert a binding list into an observable change set.
+        /// Change set observes list change events.
+        /// </summary>
+        /// <typeparam name="TCollection">The collection type.</typeparam>
+        /// <typeparam name="T">The type of the object.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <returns>An observable which emits change set values.</returns>
+        /// <exception cref="System.ArgumentNullException">source.</exception>
+        public static IObservable<IChangeSet<T>> ToObservableChangeSet<TCollection, T>(this TCollection source)
+            where TCollection : IBindingList, IEnumerable<T>
+            where T : notnull
+        {
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            return Observable.Create<IChangeSet<T>>(
+                observer =>
                 {
-                    observer.OnNext(data.CaptureChanges());
-                }
+                    var data = new ChangeAwareList<T>(source);
 
-                return source.ObserveCollectionChanges().Scan(
-                    data,
-                    (list, args) =>
+                    if (data.Count > 0)
                     {
-                        var changes = args.EventArgs;
+                        observer.OnNext(data.CaptureChanges());
+                    }
 
-                        switch (changes.ListChangedType)
+                    return source.ObserveCollectionChanges().Scan(
+                        data,
+                        (list, args) =>
                         {
-                            case ListChangedType.ItemAdded when source[changes.NewIndex] is T newItem:
+                            var changes = args.EventArgs;
+
+                            switch (changes.ListChangedType)
+                            {
+                                case ListChangedType.ItemAdded when source[changes.NewIndex] is T newItem:
                                 {
                                     if (changes.NewIndex == -1)
                                     {
@@ -263,28 +264,29 @@ public static class BindingListEx
                                     break;
                                 }
 
-                            case ListChangedType.ItemDeleted:
+                                case ListChangedType.ItemDeleted:
                                 {
                                     list.RemoveAt(changes.NewIndex);
                                     break;
                                 }
 
-                            case ListChangedType.ItemChanged when source[changes.NewIndex] is T newItem:
+                                case ListChangedType.ItemChanged when source[changes.NewIndex] is T newItem:
                                 {
                                     list[changes.NewIndex] = newItem;
                                     break;
                                 }
 
-                            case ListChangedType.Reset:
+                                case ListChangedType.Reset:
                                 {
                                     list.Clear();
                                     list.AddRange(source);
                                     break;
                                 }
-                        }
+                            }
 
-                        return list;
-                    }).Select(list => list.CaptureChanges()).SubscribeSafe(observer);
-            });
+                            return list;
+                        }).Select(list => list.CaptureChanges()).SubscribeSafe(observer);
+                });
+        }
     }
 }

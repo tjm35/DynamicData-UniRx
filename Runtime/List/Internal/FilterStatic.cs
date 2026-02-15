@@ -4,44 +4,44 @@
 
 using System;
 using System.Linq;
-using System.Reactive.Linq;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-internal class FilterStatic<T>
-    where T : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly Func<T, bool> _predicate;
-
-    private readonly IObservable<IChangeSet<T>> _source;
-
-    public FilterStatic(IObservable<IChangeSet<T>> source, Func<T, bool> predicate)
+    internal class FilterStatic<T>
+        where T : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _predicate = predicate ?? throw new ArgumentNullException(nameof(predicate));
-    }
+        private readonly Func<T, bool> _predicate;
 
-    public IObservable<IChangeSet<T>> Run()
-    {
-        return Observable.Defer(() =>
+        private readonly IObservable<IChangeSet<T>> _source;
+
+        public FilterStatic(IObservable<IChangeSet<T>> source, Func<T, bool> predicate)
         {
-            return _source.Scan(
-                new ChangeAwareList<T>(),
-                (state, changes) =>
-                {
-                    Process(state, changes);
-                    return state;
-                }).Select(filtered => filtered.CaptureChanges()).NotEmpty();
-        });
-    }
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _predicate = predicate ?? throw new ArgumentNullException(nameof(predicate));
+        }
 
-    private void Process(ChangeAwareList<T> filtered, IChangeSet<T> changes)
-    {
-        foreach (var item in changes)
+        public IObservable<IChangeSet<T>> Run()
         {
-            switch (item.Reason)
+            return Observable.Defer(() =>
             {
-                case ListChangeReason.Add:
+                return _source.Scan(
+                    new ChangeAwareList<T>(),
+                    (state, changes) =>
+                    {
+                        Process(state, changes);
+                        return state;
+                    }).Select(filtered => filtered.CaptureChanges()).NotEmpty();
+            });
+        }
+
+        private void Process(ChangeAwareList<T> filtered, IChangeSet<T> changes)
+        {
+            foreach (var item in changes)
+            {
+                switch (item.Reason)
+                {
+                    case ListChangeReason.Add:
                     {
                         var change = item.Item;
                         if (_predicate(change.Current))
@@ -52,14 +52,14 @@ internal class FilterStatic<T>
                         break;
                     }
 
-                case ListChangeReason.AddRange:
+                    case ListChangeReason.AddRange:
                     {
                         var matches = item.Range.Where(t => _predicate(t)).ToList();
                         filtered.AddRange(matches);
                         break;
                     }
 
-                case ListChangeReason.Replace:
+                    case ListChangeReason.Replace:
                     {
                         var change = item.Item;
                         var match = _predicate(change.Current);
@@ -75,23 +75,24 @@ internal class FilterStatic<T>
                         break;
                     }
 
-                case ListChangeReason.Remove:
+                    case ListChangeReason.Remove:
                     {
                         filtered.Remove(item.Item.Current);
                         break;
                     }
 
-                case ListChangeReason.RemoveRange:
+                    case ListChangeReason.RemoveRange:
                     {
                         filtered.RemoveMany(item.Range);
                         break;
                     }
 
-                case ListChangeReason.Clear:
+                    case ListChangeReason.Clear:
                     {
                         filtered.ClearOrRemoveMany(item);
                         break;
                     }
+                }
             }
         }
     }

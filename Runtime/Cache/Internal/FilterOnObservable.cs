@@ -2,48 +2,49 @@
 // Roland Pheasant licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
+using System;
+using UniRx;
 
-namespace DynamicData.Cache.Internal;
-
-internal class FilterOnObservable<TObject, TKey>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData.Cache.Internal
 {
-    private readonly Func<TObject, TKey, IObservable<bool>> _filterFactory;
-    private readonly IObservable<IChangeSet<TObject, TKey>> _source;
-    private readonly TimeSpan? _buffer;
-    private readonly IScheduler? _scheduler;
-
-    public FilterOnObservable(IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, TKey, IObservable<bool>> filterFactory, TimeSpan? buffer = null, IScheduler? scheduler = null)
+    internal class FilterOnObservable<TObject, TKey>
+        where TObject : notnull
+        where TKey : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _filterFactory = filterFactory ?? throw new ArgumentNullException(nameof(filterFactory));
-        _buffer = buffer;
-        _scheduler = scheduler;
-    }
+        private readonly Func<TObject, TKey, IObservable<bool>> _filterFactory;
+        private readonly IObservable<IChangeSet<TObject, TKey>> _source;
+        private readonly TimeSpan? _buffer;
+        private readonly IScheduler? _scheduler;
 
-    public IObservable<IChangeSet<TObject, TKey>> Run()
-    {
-        return _source.Transform((val, key) => new FilterProxy(val, _filterFactory(val, key)))
-                      .AutoRefreshOnObservable(proxy => proxy.FilterObservable, _buffer, _scheduler)
-                      .Filter(proxy => proxy.PassesFilter)
-                      .Transform(proxy => proxy.Value);
-    }
-
-    private class FilterProxy
-    {
-        public FilterProxy(TObject obj, IObservable<bool> observable)
+        public FilterOnObservable(IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, TKey, IObservable<bool>> filterFactory, TimeSpan? buffer = null, IScheduler? scheduler = null)
         {
-            Value = obj;
-            FilterObservable = observable.DistinctUntilChanged().Do(filterValue => PassesFilter = filterValue);
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _filterFactory = filterFactory ?? throw new ArgumentNullException(nameof(filterFactory));
+            _buffer = buffer;
+            _scheduler = scheduler;
         }
 
-        public IObservable<bool> FilterObservable { get; }
+        public IObservable<IChangeSet<TObject, TKey>> Run()
+        {
+            return _source.Transform((val, key) => new FilterProxy(val, _filterFactory(val, key)))
+                .AutoRefreshOnObservable(proxy => proxy.FilterObservable, _buffer, _scheduler)
+                .Filter(proxy => proxy.PassesFilter)
+                .Transform(proxy => proxy.Value);
+        }
 
-        public TObject Value { get; }
+        private class FilterProxy
+        {
+            public FilterProxy(TObject obj, IObservable<bool> observable)
+            {
+                Value = obj;
+                FilterObservable = observable.DistinctUntilChanged().Do(filterValue => PassesFilter = filterValue);
+            }
 
-        public bool PassesFilter { get; private set; }
+            public IObservable<bool> FilterObservable { get; }
+
+            public TObject Value { get; }
+
+            public bool PassesFilter { get; private set; }
+        }
     }
 }

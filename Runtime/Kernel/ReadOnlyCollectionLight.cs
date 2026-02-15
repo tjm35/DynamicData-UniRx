@@ -6,34 +6,35 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DynamicData.Kernel;
-
-internal sealed class ReadOnlyCollectionLight<T> : IReadOnlyCollection<T>
+namespace DynamicData.Kernel
 {
-    private readonly IList<T> _items;
-
-    public ReadOnlyCollectionLight(IEnumerable<T> items)
+    internal sealed class ReadOnlyCollectionLight<T> : IReadOnlyCollection<T>
     {
-        _items = items.ToList();
-        Count = _items.Count;
-    }
+        private readonly IList<T> _items;
 
-    private ReadOnlyCollectionLight()
-    {
-        _items = new List<T>();
-    }
+        public ReadOnlyCollectionLight(IEnumerable<T> items)
+        {
+            _items = items.ToList();
+            Count = _items.Count;
+        }
 
-    public static IReadOnlyCollection<T> Empty { get; } = new ReadOnlyCollectionLight<T>();
+        private ReadOnlyCollectionLight()
+        {
+            _items = new List<T>();
+        }
 
-    public int Count { get; }
+        public static IReadOnlyCollection<T> Empty { get; } = new ReadOnlyCollectionLight<T>();
 
-    public IEnumerator<T> GetEnumerator()
-    {
-        return _items.GetEnumerator();
-    }
+        public int Count { get; }
 
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
+        public IEnumerator<T> GetEnumerator()
+        {
+            return _items.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 }

@@ -6,156 +6,157 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DynamicData.Kernel;
-
-/// <summary>
-/// Enumerable extensions.
-/// </summary>
-public static class EnumerableEx
+namespace DynamicData.Kernel
 {
     /// <summary>
-    /// Casts the enumerable to an array if it is already an array.  Otherwise call ToArray.
+    /// Enumerable extensions.
     /// </summary>
-    /// <typeparam name="T">The type of the item.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <returns>The array of items.</returns>
-    public static T[] AsArray<T>(this IEnumerable<T> source)
+    public static class EnumerableEx
     {
-        if (source is null)
+        /// <summary>
+        /// Casts the enumerable to an array if it is already an array.  Otherwise call ToArray.
+        /// </summary>
+        /// <typeparam name="T">The type of the item.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <returns>The array of items.</returns>
+        public static T[] AsArray<T>(this IEnumerable<T> source)
         {
-            throw new ArgumentNullException(nameof(source));
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            return source as T[] ?? source.ToArray();
         }
 
-        return source as T[] ?? source.ToArray();
-    }
-
-    /// <summary>
-    /// Casts the enumerable to a List if it is already a List.  Otherwise call ToList.
-    /// </summary>
-    /// <typeparam name="T">The type of the item.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <returns>The list.</returns>
-    public static List<T> AsList<T>(this IEnumerable<T> source)
-    {
-        if (source is null)
+        /// <summary>
+        /// Casts the enumerable to a List if it is already a List.  Otherwise call ToList.
+        /// </summary>
+        /// <typeparam name="T">The type of the item.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <returns>The list.</returns>
+        public static List<T> AsList<T>(this IEnumerable<T> source)
         {
-            throw new ArgumentNullException(nameof(source));
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            return source as List<T> ?? source.ToList();
         }
 
-        return source as List<T> ?? source.ToList();
-    }
-
-    /// <summary>
-    /// Returns any duplicated values from the source.
-    /// </summary>
-    /// <typeparam name="T">The type of the item.</typeparam>
-    /// <typeparam name="TValue">The type of the value.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <param name="valueSelector">The value selector.</param>
-    /// <returns>The enumerable of items.</returns>
-    public static IEnumerable<T> Duplicates<T, TValue>(this IEnumerable<T> source, Func<T, TValue> valueSelector)
-    {
-        if (source is null)
+        /// <summary>
+        /// Returns any duplicated values from the source.
+        /// </summary>
+        /// <typeparam name="T">The type of the item.</typeparam>
+        /// <typeparam name="TValue">The type of the value.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <param name="valueSelector">The value selector.</param>
+        /// <returns>The enumerable of items.</returns>
+        public static IEnumerable<T> Duplicates<T, TValue>(this IEnumerable<T> source, Func<T, TValue> valueSelector)
         {
-            throw new ArgumentNullException(nameof(source));
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (valueSelector is null)
+            {
+                throw new ArgumentNullException(nameof(valueSelector));
+            }
+
+            return source.GroupBy(valueSelector).Where(group => group.Count() > 1).SelectMany(t => t);
         }
 
-        if (valueSelector is null)
+        /// <summary>
+        /// Finds the index of many items as specified in the secondary enumerable.
+        /// </summary>
+        /// <typeparam name="T">The type of the item.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <param name="itemsToFind">The items to find in the source enumerable.</param>
+        /// <returns>
+        /// A result as specified by the result selector.
+        /// </returns>
+        public static IEnumerable<ItemWithIndex<T>> IndexOfMany<T>(this IEnumerable<T> source, IEnumerable<T> itemsToFind)
         {
-            throw new ArgumentNullException(nameof(valueSelector));
+            return source.IndexOfMany(itemsToFind, (t, idx) => new ItemWithIndex<T>(t, idx));
         }
 
-        return source.GroupBy(valueSelector).Where(group => group.Count() > 1).SelectMany(t => t);
-    }
-
-    /// <summary>
-    /// Finds the index of many items as specified in the secondary enumerable.
-    /// </summary>
-    /// <typeparam name="T">The type of the item.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <param name="itemsToFind">The items to find in the source enumerable.</param>
-    /// <returns>
-    /// A result as specified by the result selector.
-    /// </returns>
-    public static IEnumerable<ItemWithIndex<T>> IndexOfMany<T>(this IEnumerable<T> source, IEnumerable<T> itemsToFind)
-    {
-        return source.IndexOfMany(itemsToFind, (t, idx) => new ItemWithIndex<T>(t, idx));
-    }
-
-    /// <summary>
-    /// Finds the index of many items as specified in the secondary enumerable.
-    /// </summary>
-    /// <typeparam name="TObject">The type of the object.</typeparam>
-    /// <typeparam name="TResult">The type of the result.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <param name="itemsToFind">The items to find.</param>
-    /// <param name="resultSelector">The result selector.</param>
-    /// <returns>A result as specified by the result selector.</returns>
-    public static IEnumerable<TResult> IndexOfMany<TObject, TResult>(this IEnumerable<TObject> source, IEnumerable<TObject> itemsToFind, Func<TObject, int, TResult> resultSelector)
-    {
-        if (source is null)
+        /// <summary>
+        /// Finds the index of many items as specified in the secondary enumerable.
+        /// </summary>
+        /// <typeparam name="TObject">The type of the object.</typeparam>
+        /// <typeparam name="TResult">The type of the result.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <param name="itemsToFind">The items to find.</param>
+        /// <param name="resultSelector">The result selector.</param>
+        /// <returns>A result as specified by the result selector.</returns>
+        public static IEnumerable<TResult> IndexOfMany<TObject, TResult>(this IEnumerable<TObject> source, IEnumerable<TObject> itemsToFind, Func<TObject, int, TResult> resultSelector)
         {
-            throw new ArgumentNullException(nameof(source));
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (itemsToFind is null)
+            {
+                throw new ArgumentNullException(nameof(itemsToFind));
+            }
+
+            if (resultSelector is null)
+            {
+                throw new ArgumentNullException(nameof(resultSelector));
+            }
+
+            var indexed = source.Select((element, index) => new { Element = element, Index = index });
+            return itemsToFind.Join(indexed, left => left, right => right.Element, (_, right) => right).Select(x => resultSelector(x.Element, x.Index));
         }
 
-        if (itemsToFind is null)
+        internal static IEnumerable<T> EmptyIfNull<T>(this IEnumerable<T>? source)
         {
-            throw new ArgumentNullException(nameof(itemsToFind));
+            return source ?? Enumerable.Empty<T>();
         }
 
-        if (resultSelector is null)
+        internal static IEnumerable<T> EnumerateOne<T>(this T source)
         {
-            throw new ArgumentNullException(nameof(resultSelector));
+            yield return source;
         }
 
-        var indexed = source.Select((element, index) => new { Element = element, Index = index });
-        return itemsToFind.Join(indexed, left => left, right => right.Element, (_, right) => right).Select(x => resultSelector(x.Element, x.Index));
-    }
-
-    internal static IEnumerable<T> EmptyIfNull<T>(this IEnumerable<T>? source)
-    {
-        return source ?? Enumerable.Empty<T>();
-    }
-
-    internal static IEnumerable<T> EnumerateOne<T>(this T source)
-    {
-        yield return source;
-    }
-
-    internal static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
-    {
-        foreach (var item in source)
+        internal static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
         {
-            action(item);
+            foreach (var item in source)
+            {
+                action(item);
+            }
         }
-    }
 
-    internal static void ForEach<TObject>(this IEnumerable<TObject> source, Action<TObject, int> action)
-    {
-        int i = 0;
-        foreach (var item in source)
+        internal static void ForEach<TObject>(this IEnumerable<TObject> source, Action<TObject, int> action)
         {
-            action(item, i);
-            i++;
+            int i = 0;
+            foreach (var item in source)
+            {
+                action(item, i);
+                i++;
+            }
         }
-    }
 
 #if !WINDOWS_UWP
-    internal static HashSet<T> ToHashSet<T>(this IEnumerable<T> source)
-    {
-        return new(source);
-    }
+        internal static HashSet<T> ToHashSet<T>(this IEnumerable<T> source)
+        {
+            return new(source);
+        }
 
 #endif
 
-    /// <summary>
-    /// Returns an object with it's current index.
-    /// </summary>
-    /// <typeparam name="T">The type of the item.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <returns>The enumerable of items with their indexes.</returns>
-    internal static IEnumerable<ItemWithIndex<T>> WithIndex<T>(this IEnumerable<T> source)
-    {
-        return source.Select((item, index) => new ItemWithIndex<T>(item, index));
+        /// <summary>
+        /// Returns an object with it's current index.
+        /// </summary>
+        /// <typeparam name="T">The type of the item.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <returns>The enumerable of items with their indexes.</returns>
+        internal static IEnumerable<ItemWithIndex<T>> WithIndex<T>(this IEnumerable<T> source)
+        {
+            return source.Select((item, index) => new ItemWithIndex<T>(item, index));
+        }
     }
 }

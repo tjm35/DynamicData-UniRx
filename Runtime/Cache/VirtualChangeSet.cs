@@ -8,68 +8,69 @@ using System.Collections.Generic;
 using DynamicData.Cache.Internal;
 
 // ReSharper disable once CheckNamespace
-namespace DynamicData;
-
-internal sealed class VirtualChangeSet<TObject, TKey> : ChangeSet<TObject, TKey>, IVirtualChangeSet<TObject, TKey>, IEquatable<VirtualChangeSet<TObject, TKey>>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData
 {
-    public static readonly new IVirtualChangeSet<TObject, TKey> Empty = new VirtualChangeSet<TObject, TKey>();
-
-    public VirtualChangeSet(IEnumerable<Change<TObject, TKey>> items, IKeyValueCollection<TObject, TKey> sortedItems, IVirtualResponse response)
-        : base(items)
+    internal sealed class VirtualChangeSet<TObject, TKey> : ChangeSet<TObject, TKey>, IVirtualChangeSet<TObject, TKey>, IEquatable<VirtualChangeSet<TObject, TKey>>
+        where TObject : notnull
+        where TKey : notnull
     {
-        SortedItems = sortedItems;
-        Response = response;
-    }
+        public static readonly new IVirtualChangeSet<TObject, TKey> Empty = new VirtualChangeSet<TObject, TKey>();
 
-    private VirtualChangeSet()
-    {
-        SortedItems = new KeyValueCollection<TObject, TKey>();
-        Response = new VirtualResponse(0, 0, 0);
-    }
-
-    public IVirtualResponse Response { get; }
-
-    public IKeyValueCollection<TObject, TKey> SortedItems { get; }
-
-    public static bool operator ==(VirtualChangeSet<TObject, TKey> left, VirtualChangeSet<TObject, TKey> right)
-    {
-        return Equals(left, right);
-    }
-
-    public static bool operator !=(VirtualChangeSet<TObject, TKey> left, VirtualChangeSet<TObject, TKey> right)
-    {
-        return !Equals(left, right);
-    }
-
-    public bool Equals(VirtualChangeSet<TObject, TKey>? other)
-    {
-        if (ReferenceEquals(null, other))
+        public VirtualChangeSet(IEnumerable<Change<TObject, TKey>> items, IKeyValueCollection<TObject, TKey> sortedItems, IVirtualResponse response)
+            : base(items)
         {
-            return false;
+            SortedItems = sortedItems;
+            Response = response;
         }
 
-        if (ReferenceEquals(this, other))
+        private VirtualChangeSet()
         {
-            return true;
+            SortedItems = new KeyValueCollection<TObject, TKey>();
+            Response = new VirtualResponse(0, 0, 0);
         }
 
-        return Response.Equals(other.Response) && Equals(SortedItems, other.SortedItems);
-    }
+        public IVirtualResponse Response { get; }
 
-    public override bool Equals(object? obj)
-    {
-        return obj is VirtualChangeSet<TObject, TKey> item && Equals(item);
-    }
+        public IKeyValueCollection<TObject, TKey> SortedItems { get; }
 
-    public override int GetHashCode()
-    {
-        unchecked
+        public static bool operator ==(VirtualChangeSet<TObject, TKey> left, VirtualChangeSet<TObject, TKey> right)
         {
-            int hashCode = Response.GetHashCode();
-            hashCode = (hashCode * 397) ^ SortedItems.GetHashCode();
-            return hashCode;
+            return Equals(left, right);
+        }
+
+        public static bool operator !=(VirtualChangeSet<TObject, TKey> left, VirtualChangeSet<TObject, TKey> right)
+        {
+            return !Equals(left, right);
+        }
+
+        public bool Equals(VirtualChangeSet<TObject, TKey>? other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return Response.Equals(other.Response) && Equals(SortedItems, other.SortedItems);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is VirtualChangeSet<TObject, TKey> item && Equals(item);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hashCode = Response.GetHashCode();
+                hashCode = (hashCode * 397) ^ SortedItems.GetHashCode();
+                return hashCode;
+            }
         }
     }
 }

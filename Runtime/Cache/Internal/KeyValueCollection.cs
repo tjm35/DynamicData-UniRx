@@ -7,50 +7,51 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DynamicData.Cache.Internal;
-
-internal class KeyValueCollection<TObject, TKey> : IKeyValueCollection<TObject, TKey>
+namespace DynamicData.Cache.Internal
 {
-    private readonly IReadOnlyCollection<KeyValuePair<TKey, TObject>> _items;
-
-    public KeyValueCollection(IReadOnlyCollection<KeyValuePair<TKey, TObject>> items, IComparer<KeyValuePair<TKey, TObject>> comparer, SortReason sortReason, SortOptimisations optimisations)
+    internal class KeyValueCollection<TObject, TKey> : IKeyValueCollection<TObject, TKey>
     {
-        _items = items ?? throw new ArgumentNullException(nameof(items));
-        Comparer = comparer;
-        SortReason = sortReason;
-        Optimisations = optimisations;
-    }
+        private readonly IReadOnlyCollection<KeyValuePair<TKey, TObject>> _items;
 
-    public KeyValueCollection()
-    {
-        Optimisations = SortOptimisations.None;
-        _items = new List<KeyValuePair<TKey, TObject>>();
-        Comparer = new KeyValueComparer<TObject, TKey>();
-    }
+        public KeyValueCollection(IReadOnlyCollection<KeyValuePair<TKey, TObject>> items, IComparer<KeyValuePair<TKey, TObject>> comparer, SortReason sortReason, SortOptimisations optimisations)
+        {
+            _items = items ?? throw new ArgumentNullException(nameof(items));
+            Comparer = comparer;
+            SortReason = sortReason;
+            Optimisations = optimisations;
+        }
 
-    /// <summary>
-    /// Gets the comparer used to perform the sort.
-    /// </summary>
-    /// <value>
-    /// The comparer.
-    /// </value>
-    public IComparer<KeyValuePair<TKey, TObject>> Comparer { get; }
+        public KeyValueCollection()
+        {
+            Optimisations = SortOptimisations.None;
+            _items = new List<KeyValuePair<TKey, TObject>>();
+            Comparer = new KeyValueComparer<TObject, TKey>();
+        }
 
-    public int Count => _items.Count;
+        /// <summary>
+        /// Gets the comparer used to perform the sort.
+        /// </summary>
+        /// <value>
+        /// The comparer.
+        /// </value>
+        public IComparer<KeyValuePair<TKey, TObject>> Comparer { get; }
 
-    public SortOptimisations Optimisations { get; }
+        public int Count => _items.Count;
 
-    public SortReason SortReason { get; }
+        public SortOptimisations Optimisations { get; }
 
-    public KeyValuePair<TKey, TObject> this[int index] => _items.ElementAt(index);
+        public SortReason SortReason { get; }
 
-    public IEnumerator<KeyValuePair<TKey, TObject>> GetEnumerator()
-    {
-        return _items.GetEnumerator();
-    }
+        public KeyValuePair<TKey, TObject> this[int index] => _items.ElementAt(index);
 
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
+        public IEnumerator<KeyValuePair<TKey, TObject>> GetEnumerator()
+        {
+            return _items.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 }

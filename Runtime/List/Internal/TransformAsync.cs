@@ -2,47 +2,50 @@
 // Roland Pheasant licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using DynamicData.Binding;
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-internal class TransformAsync<TSource, TDestination>
-    where TSource : notnull
-    where TDestination : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly Func<TSource, Optional<TDestination>, int, Task<Transformer<TSource, TDestination>.TransformedItemContainer>> _containerFactory;
-
-    private readonly IObservable<IChangeSet<TSource>> _source;
-    private readonly bool _transformOnRefresh;
-
-    public TransformAsync(IObservable<IChangeSet<TSource>> source,
-        Func<TSource, Optional<TDestination>, int, Task<TDestination>> factory, bool transformOnRefresh)
+    internal class TransformAsync<TSource, TDestination>
+        where TSource : notnull
+        where TDestination : notnull
     {
-        if (factory is null)
+        private readonly Func<TSource, Optional<TDestination>, int, Task<Transformer<TSource, TDestination>.TransformedItemContainer>> _containerFactory;
+
+        private readonly IObservable<IChangeSet<TSource>> _source;
+        private readonly bool _transformOnRefresh;
+
+        public TransformAsync(IObservable<IChangeSet<TSource>> source,
+            Func<TSource, Optional<TDestination>, int, Task<TDestination>> factory, bool transformOnRefresh)
         {
-            throw new ArgumentNullException(nameof(factory));
+            if (factory is null)
+            {
+                throw new ArgumentNullException(nameof(factory));
+            }
+
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _transformOnRefresh = transformOnRefresh;
+            _containerFactory = async (item, prev, index) =>
+            {
+                var destination = await factory(item, prev, index).ConfigureAwait(false);
+                return new Transformer<TSource, TDestination>.TransformedItemContainer(item, destination);
+            };
         }
 
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _transformOnRefresh = transformOnRefresh;
-        _containerFactory = async (item, prev, index) =>
+        public IObservable<IChangeSet<TDestination>> Run() => Observable.Defer(RunImpl);
+
+        private IObservable<IChangeSet<TDestination>> RunImpl()
         {
-            var destination = await factory(item, prev, index).ConfigureAwait(false);
-            return new Transformer<TSource, TDestination>.TransformedItemContainer(item, destination);
-        };
-    }
+            var state = new ChangeAwareList<Transformer<TSource, TDestination>.TransformedItemContainer>();
+            var asyncLock = new SemaphoreSlim(1, 1);
 
-    public IObservable<IChangeSet<TDestination>> Run() => Observable.Defer(RunImpl);
-
-    private IObservable<IChangeSet<TDestination>> RunImpl()
-    {
-        var state = new ChangeAwareList<Transformer<TSource, TDestination>.TransformedItemContainer>();
-        var asyncLock = new SemaphoreSlim(1, 1);
-
-        return _source.Select(async changes =>
+            return _source.Select(async changes =>
                 {
                     try
                     {
@@ -55,28 +58,28 @@ internal class TransformAsync<TSource, TDestination>
                         asyncLock.Release();
                     }
                 })
-            .Concat()
-            .Select(transformed =>
-            {
-                var changed = transformed.CaptureChanges();
-                return changed.Transform(container => container.Destination);
-            });
-    }
-
-    private async Task Transform(
-        ChangeAwareList<Transformer<TSource, TDestination>.TransformedItemContainer> transformed,
-        IChangeSet<TSource> changes)
-    {
-        if (changes is null)
-        {
-            throw new ArgumentNullException(nameof(changes));
+                .Concat()
+                .Select(transformed =>
+                {
+                    var changed = transformed.CaptureChanges();
+                    return changed.Transform(container => container.Destination);
+                });
         }
 
-        foreach (var item in changes)
+        private async Task Transform(
+            ChangeAwareList<Transformer<TSource, TDestination>.TransformedItemContainer> transformed,
+            IChangeSet<TSource> changes)
         {
-            switch (item.Reason)
+            if (changes is null)
             {
-                case ListChangeReason.Add:
+                throw new ArgumentNullException(nameof(changes));
+            }
+
+            foreach (var item in changes)
+            {
+                switch (item.Reason)
+                {
+                    case ListChangeReason.Add:
                     {
                         var change = item.Item;
                         if (change.CurrentIndex < 0 | change.CurrentIndex >= transformed.Count)
@@ -97,7 +100,7 @@ internal class TransformAsync<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.AddRange:
+                    case ListChangeReason.AddRange:
                     {
                         var startIndex = item.Range.Index < 0 ? transformed.Count : item.Range.Index;
                         var tasks = item.Range.Select((t, idx) => _containerFactory(t, Optional<TDestination>.None, idx + startIndex));
@@ -106,7 +109,7 @@ internal class TransformAsync<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.Refresh:
+                    case ListChangeReason.Refresh:
                     {
                         var change = item.Item;
                         if (_transformOnRefresh)
@@ -124,7 +127,7 @@ internal class TransformAsync<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.Replace:
+                    case ListChangeReason.Replace:
                     {
                         var change = item.Item;
 
@@ -142,7 +145,7 @@ internal class TransformAsync<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.Remove:
+                    case ListChangeReason.Remove:
                     {
                         var change = item.Item;
                         bool hasIndex = change.CurrentIndex >= 0;
@@ -164,7 +167,7 @@ internal class TransformAsync<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.RemoveRange:
+                    case ListChangeReason.RemoveRange:
                     {
                         if (item.Range.Index >= 0)
                         {
@@ -179,7 +182,7 @@ internal class TransformAsync<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.Clear:
+                    case ListChangeReason.Clear:
                     {
                         // i.e. need to store transformed reference so we can correctly clear
                         var toClear =
@@ -190,7 +193,7 @@ internal class TransformAsync<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.Moved:
+                    case ListChangeReason.Moved:
                     {
                         var change = item.Item;
                         bool hasIndex = change.CurrentIndex >= 0;
@@ -213,6 +216,7 @@ internal class TransformAsync<TSource, TDestination>
 
                         break;
                     }
+                }
             }
         }
     }

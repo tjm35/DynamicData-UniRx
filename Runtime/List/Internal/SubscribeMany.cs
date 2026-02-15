@@ -3,33 +3,33 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-internal sealed class SubscribeMany<T>
-    where T : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly IObservable<IChangeSet<T>> _source;
-
-    private readonly Func<T, IDisposable> _subscriptionFactory;
-
-    public SubscribeMany(IObservable<IChangeSet<T>> source, Func<T, IDisposable> subscriptionFactory)
+    internal sealed class SubscribeMany<T>
+        where T : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _subscriptionFactory = subscriptionFactory ?? throw new ArgumentNullException(nameof(subscriptionFactory));
-    }
+        private readonly IObservable<IChangeSet<T>> _source;
 
-    public IObservable<IChangeSet<T>> Run()
-    {
-        return Observable.Create<IChangeSet<T>>(
-            observer =>
-            {
-                var shared = _source.Publish();
-                var subscriptions = shared.Transform(t => _subscriptionFactory(t)).DisposeMany().Subscribe();
+        private readonly Func<T, IDisposable> _subscriptionFactory;
 
-                return new CompositeDisposable(subscriptions, shared.SubscribeSafe(observer), shared.Connect());
-            });
+        public SubscribeMany(IObservable<IChangeSet<T>> source, Func<T, IDisposable> subscriptionFactory)
+        {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _subscriptionFactory = subscriptionFactory ?? throw new ArgumentNullException(nameof(subscriptionFactory));
+        }
+
+        public IObservable<IChangeSet<T>> Run()
+        {
+            return Observable.Create<IChangeSet<T>>(
+                observer =>
+                {
+                    var shared = _source.Publish();
+                    var subscriptions = shared.Transform(t => _subscriptionFactory(t)).DisposeMany().Subscribe();
+
+                    return new CompositeDisposable(subscriptions, shared.SubscribeSafe(observer), shared.Connect());
+                });
+        }
     }
 }

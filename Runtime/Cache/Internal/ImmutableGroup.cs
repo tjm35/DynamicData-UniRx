@@ -7,69 +7,70 @@ using System.Collections.Generic;
 
 using DynamicData.Kernel;
 
-namespace DynamicData.Cache.Internal;
-
-internal sealed class ImmutableGroup<TObject, TKey, TGroupKey> : IGrouping<TObject, TKey, TGroupKey>, IEquatable<ImmutableGroup<TObject, TKey, TGroupKey>>
-    where TObject : notnull
-    where TKey : notnull
-    where TGroupKey : notnull
+namespace DynamicData.Cache.Internal
 {
-    private readonly ICache<TObject, TKey> _cache;
-
-    internal ImmutableGroup(TGroupKey key, ICache<TObject, TKey> cache)
+    internal sealed class ImmutableGroup<TObject, TKey, TGroupKey> : IGrouping<TObject, TKey, TGroupKey>, IEquatable<ImmutableGroup<TObject, TKey, TGroupKey>>
+        where TObject : notnull
+        where TKey : notnull
+        where TGroupKey : notnull
     {
-        Key = key;
-        _cache = new Cache<TObject, TKey>(cache.Count);
-        cache.KeyValues.ForEach(kvp => _cache.AddOrUpdate(kvp.Value, kvp.Key));
-    }
+        private readonly ICache<TObject, TKey> _cache;
 
-    public int Count => _cache.Count;
-
-    public IEnumerable<TObject> Items => _cache.Items;
-
-    public TGroupKey Key { get; }
-
-    public IEnumerable<TKey> Keys => _cache.Keys;
-
-    public IEnumerable<KeyValuePair<TKey, TObject>> KeyValues => _cache.KeyValues;
-
-    public static bool operator ==(ImmutableGroup<TObject, TKey, TGroupKey> left, ImmutableGroup<TObject, TKey, TGroupKey> right)
-    {
-        return Equals(left, right);
-    }
-
-    public static bool operator !=(ImmutableGroup<TObject, TKey, TGroupKey> left, ImmutableGroup<TObject, TKey, TGroupKey> right)
-    {
-        return !Equals(left, right);
-    }
-
-    public bool Equals(ImmutableGroup<TObject, TKey, TGroupKey>? other)
-    {
-        if (ReferenceEquals(this, other))
+        internal ImmutableGroup(TGroupKey key, ICache<TObject, TKey> cache)
         {
-            return true;
+            Key = key;
+            _cache = new Cache<TObject, TKey>(cache.Count);
+            cache.KeyValues.ForEach(kvp => _cache.AddOrUpdate(kvp.Value, kvp.Key));
         }
 
-        return other is not null && EqualityComparer<TGroupKey?>.Default.Equals(Key, other.Key);
-    }
+        public int Count => _cache.Count;
 
-    public override bool Equals(object? obj)
-    {
-        return obj is ImmutableGroup<TObject, TKey, TGroupKey> value && Equals(value);
-    }
+        public IEnumerable<TObject> Items => _cache.Items;
 
-    public override int GetHashCode()
-    {
-        return EqualityComparer<TGroupKey>.Default.GetHashCode(Key);
-    }
+        public TGroupKey Key { get; }
 
-    public Optional<TObject> Lookup(TKey key)
-    {
-        return _cache.Lookup(key);
-    }
+        public IEnumerable<TKey> Keys => _cache.Keys;
 
-    public override string ToString()
-    {
-        return $"Grouping for: {Key} ({Count} items)";
+        public IEnumerable<KeyValuePair<TKey, TObject>> KeyValues => _cache.KeyValues;
+
+        public static bool operator ==(ImmutableGroup<TObject, TKey, TGroupKey> left, ImmutableGroup<TObject, TKey, TGroupKey> right)
+        {
+            return Equals(left, right);
+        }
+
+        public static bool operator !=(ImmutableGroup<TObject, TKey, TGroupKey> left, ImmutableGroup<TObject, TKey, TGroupKey> right)
+        {
+            return !Equals(left, right);
+        }
+
+        public bool Equals(ImmutableGroup<TObject, TKey, TGroupKey>? other)
+        {
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return other is not null && EqualityComparer<TGroupKey?>.Default.Equals(Key, other.Key);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is ImmutableGroup<TObject, TKey, TGroupKey> value && Equals(value);
+        }
+
+        public override int GetHashCode()
+        {
+            return EqualityComparer<TGroupKey>.Default.GetHashCode(Key);
+        }
+
+        public Optional<TObject> Lookup(TKey key)
+        {
+            return _cache.Lookup(key);
+        }
+
+        public override string ToString()
+        {
+            return $"Grouping for: {Key} ({Count} items)";
+        }
     }
 }

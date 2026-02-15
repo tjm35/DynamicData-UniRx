@@ -5,57 +5,58 @@
 using System;
 using System.Collections.Generic;
 
-namespace DynamicData.List.Internal;
-
-internal class Group<TObject, TGroup> : IGroup<TObject, TGroup>, IDisposable, IEquatable<Group<TObject, TGroup>>
-    where TObject : notnull
+namespace DynamicData.List.Internal
 {
-    public Group(TGroup groupKey) => GroupKey = groupKey;
-
-    public TGroup GroupKey { get; }
-
-    public IObservableList<TObject> List => Source;
-
-    private ISourceList<TObject> Source { get; } = new SourceList<TObject>();
-
-    public static bool operator ==(Group<TObject, TGroup> left, Group<TObject, TGroup> right)
+    internal class Group<TObject, TGroup> : IGroup<TObject, TGroup>, IDisposable, IEquatable<Group<TObject, TGroup>>
+        where TObject : notnull
     {
-        return Equals(left, right);
-    }
+        public Group(TGroup groupKey) => GroupKey = groupKey;
 
-    public static bool operator !=(Group<TObject, TGroup> left, Group<TObject, TGroup> right)
-    {
-        return !Equals(left, right);
-    }
+        public TGroup GroupKey { get; }
 
-    public void Dispose() => Source.Dispose();
+        public IObservableList<TObject> List => Source;
 
-    public void Edit(Action<IList<TObject>> editAction) => Source.Edit(editAction);
+        private ISourceList<TObject> Source { get; } = new SourceList<TObject>();
 
-    public bool Equals(Group<TObject, TGroup>? other)
-    {
-        if (ReferenceEquals(null, other))
+        public static bool operator ==(Group<TObject, TGroup> left, Group<TObject, TGroup> right)
         {
-            return false;
+            return Equals(left, right);
         }
 
-        if (ReferenceEquals(this, other))
+        public static bool operator !=(Group<TObject, TGroup> left, Group<TObject, TGroup> right)
         {
-            return true;
+            return !Equals(left, right);
         }
 
-        return EqualityComparer<TGroup>.Default.Equals(GroupKey, other.GroupKey);
-    }
+        public void Dispose() => Source.Dispose();
 
-    public override bool Equals(object? obj)
-    {
-        return obj is Group<TObject, TGroup> value && Equals(value);
-    }
+        public void Edit(Action<IList<TObject>> editAction) => Source.Edit(editAction);
 
-    public override int GetHashCode()
-    {
-        return GroupKey is null ? 0 : EqualityComparer<TGroup>.Default.GetHashCode(GroupKey);
-    }
+        public bool Equals(Group<TObject, TGroup>? other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
 
-    public override string ToString() => $"Group of {GroupKey} ({List.Count} records)";
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return EqualityComparer<TGroup>.Default.Equals(GroupKey, other.GroupKey);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is Group<TObject, TGroup> value && Equals(value);
+        }
+
+        public override int GetHashCode()
+        {
+            return GroupKey is null ? 0 : EqualityComparer<TGroup>.Default.GetHashCode(GroupKey);
+        }
+
+        public override string ToString() => $"Group of {GroupKey} ({List.Count} records)";
+    }
 }

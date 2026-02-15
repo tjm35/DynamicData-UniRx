@@ -5,150 +5,149 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive;
-using System.Reactive.Linq;
+using UniRx;
 
-namespace DynamicData.Cache.Internal;
-
-internal sealed class Sort<TObject, TKey>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData.Cache.Internal
 {
-    private readonly IComparer<TObject>? _comparer;
-
-    private readonly IObservable<IComparer<TObject>>? _comparerChangedObservable;
-
-    private readonly int _resetThreshold;
-
-    private readonly IObservable<Unit>? _resorter;
-
-    private readonly SortOptimisations _sortOptimisations;
-
-    private readonly IObservable<IChangeSet<TObject, TKey>> _source;
-
-    public Sort(IObservable<IChangeSet<TObject, TKey>> source, IComparer<TObject>? comparer, SortOptimisations sortOptimisations = SortOptimisations.None, IObservable<IComparer<TObject>>? comparerChangedObservable = null, IObservable<Unit>? resorter = null, int resetThreshold = -1)
+    internal sealed class Sort<TObject, TKey>
+        where TObject : notnull
+        where TKey : notnull
     {
-        if (comparer is null && comparerChangedObservable is null)
-        {
-            throw new ArgumentException("Must specify comparer or comparerChangedObservable");
-        }
+        private readonly IComparer<TObject>? _comparer;
 
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _comparer = comparer;
-        _sortOptimisations = sortOptimisations;
-        _resorter = resorter;
-        _comparerChangedObservable = comparerChangedObservable;
-        _resetThreshold = resetThreshold;
-    }
-
-    public IObservable<ISortedChangeSet<TObject, TKey>> Run()
-    {
-        return Observable.Create<ISortedChangeSet<TObject, TKey>>(
-            observer =>
-            {
-                var sorter = new Sorter(_sortOptimisations, _comparer, _resetThreshold);
-                var locker = new object();
-
-                // check for nulls so we can prevent a lock when not required
-                if (_comparerChangedObservable is null && _resorter is null)
-                {
-                    return _source.Select(sorter.Sort).Where(result => result is not null).Select(x => x!).SubscribeSafe(observer);
-                }
-
-                var comparerChanged = (_comparerChangedObservable ?? Observable.Never<IComparer<TObject>>()).Synchronize(locker).Select(sorter.Sort);
-
-                var sortAgain = (_resorter ?? Observable.Never<Unit>()).Synchronize(locker).Select(_ => sorter.Sort());
-
-                var dataChanged = _source.Synchronize(locker).Select(sorter.Sort);
-
-                return comparerChanged.Merge(dataChanged).Merge(sortAgain).Where(result => result is not null).Select(x => x!).SubscribeSafe(observer);
-            });
-    }
-
-    private class Sorter
-    {
-        private readonly ChangeAwareCache<TObject, TKey> _cache = new();
-
-        private readonly SortOptimisations _optimisations;
+        private readonly IObservable<IComparer<TObject>>? _comparerChangedObservable;
 
         private readonly int _resetThreshold;
 
-        private IndexCalculator<TObject, TKey>? _calculator;
+        private readonly IObservable<Unit>? _resorter;
 
-        private KeyValueComparer<TObject, TKey> _comparer;
+        private readonly SortOptimisations _sortOptimisations;
 
-        private bool _haveReceivedData;
+        private readonly IObservable<IChangeSet<TObject, TKey>> _source;
 
-        private bool _initialised;
-
-        private IKeyValueCollection<TObject, TKey> _sorted = new KeyValueCollection<TObject, TKey>();
-
-        public Sorter(SortOptimisations optimisations, IComparer<TObject>? comparer = null, int resetThreshold = -1)
+        public Sort(IObservable<IChangeSet<TObject, TKey>> source, IComparer<TObject>? comparer, SortOptimisations sortOptimisations = SortOptimisations.None, IObservable<IComparer<TObject>>? comparerChangedObservable = null, IObservable<Unit>? resorter = null, int resetThreshold = -1)
         {
-            _optimisations = optimisations;
+            if (comparer is null && comparerChangedObservable is null)
+            {
+                throw new ArgumentException("Must specify comparer or comparerChangedObservable");
+            }
+
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _comparer = comparer;
+            _sortOptimisations = sortOptimisations;
+            _resorter = resorter;
+            _comparerChangedObservable = comparerChangedObservable;
             _resetThreshold = resetThreshold;
-            _comparer = new KeyValueComparer<TObject, TKey>(comparer);
         }
 
-        /// <summary>
-        /// Sorts the specified changes. Will return null if there are no changes.
-        /// </summary>
-        /// <param name="changes">The changes.</param>
-        /// <returns>The sorted change set.</returns>
-        public ISortedChangeSet<TObject, TKey>? Sort(IChangeSet<TObject, TKey> changes) => DoSort(SortReason.DataChanged, changes);
-
-        /// <summary>
-        /// Sorts all data using the specified comparer.
-        /// </summary>
-        /// <param name="comparer">The comparer.</param>
-        /// <returns>The sorted change set.</returns>
-        public ISortedChangeSet<TObject, TKey>? Sort(IComparer<TObject> comparer)
+        public IObservable<ISortedChangeSet<TObject, TKey>> Run()
         {
-            _comparer = new KeyValueComparer<TObject, TKey>(comparer);
-            return DoSort(SortReason.ComparerChanged);
+            return Observable.Create<ISortedChangeSet<TObject, TKey>>(
+                observer =>
+                {
+                    var sorter = new Sorter(_sortOptimisations, _comparer, _resetThreshold);
+                    var locker = new object();
+
+                    // check for nulls so we can prevent a lock when not required
+                    if (_comparerChangedObservable is null && _resorter is null)
+                    {
+                        return _source.Select(sorter.Sort).Where(result => result is not null).Select(x => x!).SubscribeSafe(observer);
+                    }
+
+                    var comparerChanged = (_comparerChangedObservable ?? Observable.Never<IComparer<TObject>>()).Synchronize(locker).Select(sorter.Sort);
+
+                    var sortAgain = (_resorter ?? Observable.Never<Unit>()).Synchronize(locker).Select(_ => sorter.Sort());
+
+                    var dataChanged = _source.Synchronize(locker).Select(sorter.Sort);
+
+                    return comparerChanged.Merge(dataChanged).Merge(sortAgain).Where(result => result is not null).Select(x => x!).SubscribeSafe(observer);
+                });
         }
 
-        /// <summary>
-        /// Sorts all data using the current comparer.
-        /// </summary>
-        /// <returns>The sorted change set.</returns>
-        public ISortedChangeSet<TObject, TKey>? Sort() => DoSort(SortReason.Reorder);
-
-        /// <summary>
-        /// Sorts using the specified sorter. Will return null if there are no changes.
-        /// </summary>
-        /// <param name="sortReason">The sort reason.</param>
-        /// <param name="changes">The changes.</param>
-        /// <returns>The sorted change set.</returns>
-        private ISortedChangeSet<TObject, TKey>? DoSort(SortReason sortReason, IChangeSet<TObject, TKey>? changes = null)
+        private class Sorter
         {
-            if (changes is not null)
+            private readonly ChangeAwareCache<TObject, TKey> _cache = new();
+
+            private readonly SortOptimisations _optimisations;
+
+            private readonly int _resetThreshold;
+
+            private IndexCalculator<TObject, TKey>? _calculator;
+
+            private KeyValueComparer<TObject, TKey> _comparer;
+
+            private bool _haveReceivedData;
+
+            private bool _initialised;
+
+            private IKeyValueCollection<TObject, TKey> _sorted = new KeyValueCollection<TObject, TKey>();
+
+            public Sorter(SortOptimisations optimisations, IComparer<TObject>? comparer = null, int resetThreshold = -1)
             {
-                _cache.Clone(changes);
-                changes = _cache.CaptureChanges();
-                _haveReceivedData = true;
+                _optimisations = optimisations;
+                _resetThreshold = resetThreshold;
+                _comparer = new KeyValueComparer<TObject, TKey>(comparer);
             }
 
-            // if the comparer is not set, return nothing
-            if (!_haveReceivedData)
+            /// <summary>
+            /// Sorts the specified changes. Will return null if there are no changes.
+            /// </summary>
+            /// <param name="changes">The changes.</param>
+            /// <returns>The sorted change set.</returns>
+            public ISortedChangeSet<TObject, TKey>? Sort(IChangeSet<TObject, TKey> changes) => DoSort(SortReason.DataChanged, changes);
+
+            /// <summary>
+            /// Sorts all data using the specified comparer.
+            /// </summary>
+            /// <param name="comparer">The comparer.</param>
+            /// <returns>The sorted change set.</returns>
+            public ISortedChangeSet<TObject, TKey>? Sort(IComparer<TObject> comparer)
             {
-                return null;
+                _comparer = new KeyValueComparer<TObject, TKey>(comparer);
+                return DoSort(SortReason.ComparerChanged);
             }
 
-            if (!_initialised)
-            {
-                sortReason = SortReason.InitialLoad;
-                _initialised = true;
-            }
-            else if (changes is not null && (_resetThreshold > 0 && changes.Count >= _resetThreshold))
-            {
-                sortReason = SortReason.Reset;
-            }
+            /// <summary>
+            /// Sorts all data using the current comparer.
+            /// </summary>
+            /// <returns>The sorted change set.</returns>
+            public ISortedChangeSet<TObject, TKey>? Sort() => DoSort(SortReason.Reorder);
 
-            IChangeSet<TObject, TKey>? changeSet;
-            switch (sortReason)
+            /// <summary>
+            /// Sorts using the specified sorter. Will return null if there are no changes.
+            /// </summary>
+            /// <param name="sortReason">The sort reason.</param>
+            /// <param name="changes">The changes.</param>
+            /// <returns>The sorted change set.</returns>
+            private ISortedChangeSet<TObject, TKey>? DoSort(SortReason sortReason, IChangeSet<TObject, TKey>? changes = null)
             {
-                case SortReason.InitialLoad:
+                if (changes is not null)
+                {
+                    _cache.Clone(changes);
+                    changes = _cache.CaptureChanges();
+                    _haveReceivedData = true;
+                }
+
+                // if the comparer is not set, return nothing
+                if (!_haveReceivedData)
+                {
+                    return null;
+                }
+
+                if (!_initialised)
+                {
+                    sortReason = SortReason.InitialLoad;
+                    _initialised = true;
+                }
+                else if (changes is not null && (_resetThreshold > 0 && changes.Count >= _resetThreshold))
+                {
+                    sortReason = SortReason.Reset;
+                }
+
+                IChangeSet<TObject, TKey>? changeSet;
+                switch (sortReason)
+                {
+                    case SortReason.InitialLoad:
                     {
                         // For the first batch, changes may have arrived before the comparer was set.
                         // therefore infer the first batch of changes from the cache
@@ -156,9 +155,9 @@ internal sealed class Sort<TObject, TKey>
                         changeSet = _calculator.Load(_cache);
                     }
 
-                    break;
+                        break;
 
-                case SortReason.Reset:
+                    case SortReason.Reset:
                     {
                         if (_calculator is null)
                         {
@@ -169,9 +168,9 @@ internal sealed class Sort<TObject, TKey>
                         changeSet = changes;
                     }
 
-                    break;
+                        break;
 
-                case SortReason.DataChanged:
+                    case SortReason.DataChanged:
                     {
                         if (_calculator is null)
                         {
@@ -186,9 +185,9 @@ internal sealed class Sort<TObject, TKey>
                         changeSet = _calculator.Calculate(changes);
                     }
 
-                    break;
+                        break;
 
-                case SortReason.ComparerChanged:
+                    case SortReason.ComparerChanged:
                     {
                         if (_calculator is null)
                         {
@@ -208,9 +207,9 @@ internal sealed class Sort<TObject, TKey>
                         }
                     }
 
-                    break;
+                        break;
 
-                case SortReason.Reorder:
+                    case SortReason.Reorder:
                     {
                         if (_calculator is null)
                         {
@@ -220,29 +219,30 @@ internal sealed class Sort<TObject, TKey>
                         changeSet = _calculator.Reorder();
                     }
 
-                    break;
+                        break;
 
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(sortReason));
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(sortReason));
+                }
+
+                if (changeSet is null)
+                {
+                    throw new InvalidOperationException("Change set must not be null.");
+                }
+
+                if (_calculator is null)
+                {
+                    throw new InvalidOperationException("The calculator has not been initialized");
+                }
+
+                if (sortReason == SortReason.Reorder && changeSet.Count == 0)
+                {
+                    return null;
+                }
+
+                _sorted = new KeyValueCollection<TObject, TKey>(_calculator.List.ToList(), _comparer, sortReason, _optimisations);
+                return new SortedChangeSet<TObject, TKey>(_sorted, changeSet);
             }
-
-            if (changeSet is null)
-            {
-                throw new InvalidOperationException("Change set must not be null.");
-            }
-
-            if (_calculator is null)
-            {
-                throw new InvalidOperationException("The calculator has not been initialized");
-            }
-
-            if (sortReason == SortReason.Reorder && changeSet.Count == 0)
-            {
-                return null;
-            }
-
-            _sorted = new KeyValueCollection<TObject, TKey>(_calculator.List.ToList(), _comparer, sortReason, _optimisations);
-            return new SortedChangeSet<TObject, TKey>(_sorted, changeSet);
         }
     }
 }

@@ -3,47 +3,47 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Reactive.Linq;
-
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-internal sealed class OnBeingAdded<T>
-    where T : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly Action<T> _callback;
-
-    private readonly IObservable<IChangeSet<T>> _source;
-
-    public OnBeingAdded(IObservable<IChangeSet<T>> source, Action<T> callback)
+    internal sealed class OnBeingAdded<T>
+        where T : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _callback = callback ?? throw new ArgumentNullException(nameof(callback));
-    }
+        private readonly Action<T> _callback;
 
-    public IObservable<IChangeSet<T>> Run()
-    {
-        return _source.Do(RegisterForAddition);
-    }
+        private readonly IObservable<IChangeSet<T>> _source;
 
-    private void RegisterForAddition(IChangeSet<T> changes)
-    {
-        foreach (var change in changes)
+        public OnBeingAdded(IObservable<IChangeSet<T>> source, Action<T> callback)
         {
-            switch (change.Reason)
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _callback = callback ?? throw new ArgumentNullException(nameof(callback));
+        }
+
+        public IObservable<IChangeSet<T>> Run()
+        {
+            return _source.Do(RegisterForAddition);
+        }
+
+        private void RegisterForAddition(IChangeSet<T> changes)
+        {
+            foreach (var change in changes)
             {
-                case ListChangeReason.Add:
-                    _callback(change.Item.Current);
-                    break;
+                switch (change.Reason)
+                {
+                    case ListChangeReason.Add:
+                        _callback(change.Item.Current);
+                        break;
 
-                case ListChangeReason.AddRange:
-                    change.Range.ForEach(_callback);
-                    break;
+                    case ListChangeReason.AddRange:
+                        change.Range.ForEach(_callback);
+                        break;
 
-                case ListChangeReason.Replace:
-                    _callback(change.Item.Current);
-                    break;
+                    case ListChangeReason.Replace:
+                        _callback(change.Item.Current);
+                        break;
+                }
             }
         }
     }

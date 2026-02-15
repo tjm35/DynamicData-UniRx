@@ -7,71 +7,72 @@ using System.Collections.Generic;
 
 using DynamicData.Kernel;
 
-namespace DynamicData.List.Internal;
-
-internal sealed class ImmutableGroup<TObject, TGroupKey> : IGrouping<TObject, TGroupKey>, IEquatable<ImmutableGroup<TObject, TGroupKey>>
+namespace DynamicData.List.Internal
 {
-    private readonly IReadOnlyCollection<TObject> _items;
-
-    internal ImmutableGroup(TGroupKey key, IList<TObject> items)
+    internal sealed class ImmutableGroup<TObject, TGroupKey> : IGrouping<TObject, TGroupKey>, IEquatable<ImmutableGroup<TObject, TGroupKey>>
     {
-        Key = key;
-        _items = new ReadOnlyCollectionLight<TObject>(items);
-    }
+        private readonly IReadOnlyCollection<TObject> _items;
 
-    public int Count => _items.Count;
-
-    public IEnumerable<TObject> Items => _items;
-
-    public TGroupKey Key { get; }
-
-    public static bool operator ==(ImmutableGroup<TObject, TGroupKey> left, ImmutableGroup<TObject, TGroupKey> right)
-    {
-        return Equals(left, right);
-    }
-
-    public static bool operator !=(ImmutableGroup<TObject, TGroupKey> left, ImmutableGroup<TObject, TGroupKey> right)
-    {
-        return !Equals(left, right);
-    }
-
-    public bool Equals(ImmutableGroup<TObject, TGroupKey>? other)
-    {
-        if (ReferenceEquals(null, other))
+        internal ImmutableGroup(TGroupKey key, IList<TObject> items)
         {
-            return false;
+            Key = key;
+            _items = new ReadOnlyCollectionLight<TObject>(items);
         }
 
-        if (ReferenceEquals(this, other))
+        public int Count => _items.Count;
+
+        public IEnumerable<TObject> Items => _items;
+
+        public TGroupKey Key { get; }
+
+        public static bool operator ==(ImmutableGroup<TObject, TGroupKey> left, ImmutableGroup<TObject, TGroupKey> right)
         {
-            return true;
+            return Equals(left, right);
         }
 
-        return EqualityComparer<TGroupKey>.Default.Equals(Key, other.Key);
-    }
-
-    public override bool Equals(object? obj)
-    {
-        if (ReferenceEquals(null, obj))
+        public static bool operator !=(ImmutableGroup<TObject, TGroupKey> left, ImmutableGroup<TObject, TGroupKey> right)
         {
-            return false;
+            return !Equals(left, right);
         }
 
-        if (ReferenceEquals(this, obj))
+        public bool Equals(ImmutableGroup<TObject, TGroupKey>? other)
         {
-            return true;
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return EqualityComparer<TGroupKey>.Default.Equals(Key, other.Key);
         }
 
-        return obj is ImmutableGroup<TObject, TGroupKey> value && Equals(value);
-    }
+        public override bool Equals(object? obj)
+        {
+            if (ReferenceEquals(null, obj))
+            {
+                return false;
+            }
 
-    public override int GetHashCode()
-    {
-        return Key is null ? 0 : EqualityComparer<TGroupKey>.Default.GetHashCode(Key);
-    }
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
 
-    public override string ToString()
-    {
-        return $"Grouping for: {Key} ({Count} items)";
+            return obj is ImmutableGroup<TObject, TGroupKey> value && Equals(value);
+        }
+
+        public override int GetHashCode()
+        {
+            return Key is null ? 0 : EqualityComparer<TGroupKey>.Default.GetHashCode(Key);
+        }
+
+        public override string ToString()
+        {
+            return $"Grouping for: {Key} ({Count} items)";
+        }
     }
 }

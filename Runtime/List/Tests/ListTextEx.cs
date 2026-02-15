@@ -5,22 +5,23 @@
 using System;
 
 // ReSharper disable once CheckNamespace
-namespace DynamicData.Tests;
-
-/// <summary>
-/// Test extensions.
-/// </summary>
-public static class ListTextEx
+namespace DynamicData.Tests
 {
     /// <summary>
-    /// Aggregates all events and statistics for a change set to help assertions when testing.
+    /// Test extensions.
     /// </summary>
-    /// <param name="source">The source observable.</param>
-    /// <typeparam name="T">The type of the object.</typeparam>
-    /// <returns>The change set aggregator.</returns>
-    public static ChangeSetAggregator<T> AsAggregator<T>(this IObservable<IChangeSet<T>> source)
-        where T : notnull
+    public static class ListTextEx
     {
-        return new(source);
+        /// <summary>
+        /// Aggregates all events and statistics for a change set to help assertions when testing.
+        /// </summary>
+        /// <param name="source">The source observable.</param>
+        /// <typeparam name="T">The type of the object.</typeparam>
+        /// <returns>The change set aggregator.</returns>
+        public static ChangeSetAggregator<T> AsAggregator<T>(this IObservable<IChangeSet<T>> source)
+            where T : notnull
+        {
+            return new(source);
+        }
     }
 }

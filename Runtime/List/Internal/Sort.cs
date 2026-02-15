@@ -5,157 +5,155 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive;
-using System.Reactive.Linq;
-
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-internal sealed class Sort<T>
-    where T : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly IObservable<IComparer<T>> _comparerObservable;
-
-    private readonly int _resetThreshold;
-
-    private readonly IObservable<Unit> _resort;
-
-    private readonly SortOptions _sortOptions;
-
-    private readonly IObservable<IChangeSet<T>> _source;
-
-    private IComparer<T> _comparer;
-
-    public Sort(IObservable<IChangeSet<T>> source, IComparer<T>? comparer, SortOptions sortOptions, IObservable<Unit>? resort, IObservable<IComparer<T>>? comparerObservable, int resetThreshold)
+    internal sealed class Sort<T>
+        where T : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _resort = resort ?? Observable.Never<Unit>();
-        _comparerObservable = comparerObservable ?? Observable.Never<IComparer<T>>();
-        _comparer = comparer ?? Comparer<T>.Default;
-        _sortOptions = sortOptions;
-        _resetThreshold = resetThreshold;
-    }
+        private readonly IObservable<IComparer<T>> _comparerObservable;
 
-    public IObservable<IChangeSet<T>> Run()
-    {
-        return Observable.Create<IChangeSet<T>>(
-            observer =>
-            {
-                var locker = new object();
-                var original = new List<T>();
-                var target = new ChangeAwareList<T>();
+        private readonly int _resetThreshold;
 
-                var dataChanged = _source.Synchronize(locker).Select(
-                    changes =>
-                    {
-                        if (_resetThreshold > 1)
+        private readonly IObservable<Unit> _resort;
+
+        private readonly SortOptions _sortOptions;
+
+        private readonly IObservable<IChangeSet<T>> _source;
+
+        private IComparer<T> _comparer;
+
+        public Sort(IObservable<IChangeSet<T>> source, IComparer<T>? comparer, SortOptions sortOptions, IObservable<Unit>? resort, IObservable<IComparer<T>>? comparerObservable, int resetThreshold)
+        {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _resort = resort ?? Observable.Never<Unit>();
+            _comparerObservable = comparerObservable ?? Observable.Never<IComparer<T>>();
+            _comparer = comparer ?? Comparer<T>.Default;
+            _sortOptions = sortOptions;
+            _resetThreshold = resetThreshold;
+        }
+
+        public IObservable<IChangeSet<T>> Run()
+        {
+            return Observable.Create<IChangeSet<T>>(
+                observer =>
+                {
+                    var locker = new object();
+                    var original = new List<T>();
+                    var target = new ChangeAwareList<T>();
+
+                    var dataChanged = _source.Synchronize(locker).Select(
+                        changes =>
                         {
-                            original.Clone(changes);
-                        }
+                            if (_resetThreshold > 1)
+                            {
+                                original.Clone(changes);
+                            }
 
-                        return changes.TotalChanges > _resetThreshold ? Reset(original, target) : Process(target, changes);
-                    });
-                var resort = _resort.Synchronize(locker).Select(_ => Reorder(target));
-                var changeComparer = _comparerObservable.Synchronize(locker).Select(comparer => ChangeComparer(target, comparer));
+                            return changes.TotalChanges > _resetThreshold ? Reset(original, target) : Process(target, changes);
+                        });
+                    var resort = _resort.Synchronize(locker).Select(_ => Reorder(target));
+                    var changeComparer = _comparerObservable.Synchronize(locker).Select(comparer => ChangeComparer(target, comparer));
 
-                return changeComparer.Merge(resort).Merge(dataChanged).Where(changes => changes.Count != 0).SubscribeSafe(observer);
-            });
-    }
-
-    private IChangeSet<T> ChangeComparer(ChangeAwareList<T> target, IComparer<T> comparer)
-    {
-        _comparer = comparer;
-        if (_resetThreshold > 0 && target.Count <= _resetThreshold)
-        {
-            return Reorder(target);
+                    return changeComparer.Merge(resort).Merge(dataChanged).Where(changes => changes.Count != 0).SubscribeSafe(observer);
+                });
         }
 
-        var sorted = target.OrderBy(t => t, _comparer).ToList();
-        target.Clear();
-        target.AddRange(sorted);
-        return target.CaptureChanges();
-    }
-
-    private int GetCurrentPosition(ChangeAwareList<T> target, T item)
-    {
-        var index = _sortOptions == SortOptions.UseBinarySearch ? target.BinarySearch(item, _comparer) : target.IndexOf(item);
-
-        if (index < 0)
+        private IChangeSet<T> ChangeComparer(ChangeAwareList<T> target, IComparer<T> comparer)
         {
-            throw new SortException($"Cannot find item: {typeof(T).Name} -> {item}");
-        }
-
-        return index;
-    }
-
-    private int GetInsertPosition(ChangeAwareList<T> target, T item)
-    {
-        return _sortOptions == SortOptions.UseBinarySearch ? GetInsertPositionBinary(target, item) : GetInsertPositionLinear(target, item);
-    }
-
-    private int GetInsertPositionBinary(ChangeAwareList<T> target, T item)
-    {
-        int index = target.BinarySearch(item, _comparer);
-        int insertIndex = ~index;
-
-        // sort is not returning uniqueness
-        if (insertIndex < 0)
-        {
-            throw new SortException("Binary search has been specified, yet the sort does not yield uniqueness");
-        }
-
-        return insertIndex;
-    }
-
-    private int GetInsertPositionLinear(ChangeAwareList<T> target, T item)
-    {
-        for (var i = 0; i < target.Count; i++)
-        {
-            if (_comparer.Compare(item, target[i]) < 0)
+            _comparer = comparer;
+            if (_resetThreshold > 0 && target.Count <= _resetThreshold)
             {
-                return i;
+                return Reorder(target);
             }
-        }
 
-        return target.Count;
-    }
-
-    private void Insert(ChangeAwareList<T> target, T item)
-    {
-        var index = GetInsertPosition(target, item);
-        target.Insert(index, item);
-    }
-
-    private IChangeSet<T> Process(ChangeAwareList<T> target, IChangeSet<T> changes)
-    {
-        // if all removes and not Clear, then more efficient to try clear range
-        if (changes.TotalChanges == changes.Removes && changes.All(c => c.Reason != ListChangeReason.Clear) && changes.Removes > 1)
-        {
-            var removed = changes.Unified().Select(u => u.Current);
-            target.RemoveMany(removed);
+            var sorted = target.OrderBy(t => t, _comparer).ToList();
+            target.Clear();
+            target.AddRange(sorted);
             return target.CaptureChanges();
         }
 
-        return ProcessImpl(target, changes);
-    }
-
-    private IChangeSet<T> ProcessImpl(ChangeAwareList<T> target, IChangeSet<T> changes)
-    {
-        var refreshes = new List<T>(changes.Refreshes);
-
-        foreach (var change in changes)
+        private int GetCurrentPosition(ChangeAwareList<T> target, T item)
         {
-            switch (change.Reason)
+            var index = _sortOptions == SortOptions.UseBinarySearch ? target.BinarySearch(item, _comparer) : target.IndexOf(item);
+
+            if (index < 0)
             {
-                case ListChangeReason.Add:
+                throw new SortException($"Cannot find item: {typeof(T).Name} -> {item}");
+            }
+
+            return index;
+        }
+
+        private int GetInsertPosition(ChangeAwareList<T> target, T item)
+        {
+            return _sortOptions == SortOptions.UseBinarySearch ? GetInsertPositionBinary(target, item) : GetInsertPositionLinear(target, item);
+        }
+
+        private int GetInsertPositionBinary(ChangeAwareList<T> target, T item)
+        {
+            int index = target.BinarySearch(item, _comparer);
+            int insertIndex = ~index;
+
+            // sort is not returning uniqueness
+            if (insertIndex < 0)
+            {
+                throw new SortException("Binary search has been specified, yet the sort does not yield uniqueness");
+            }
+
+            return insertIndex;
+        }
+
+        private int GetInsertPositionLinear(ChangeAwareList<T> target, T item)
+        {
+            for (var i = 0; i < target.Count; i++)
+            {
+                if (_comparer.Compare(item, target[i]) < 0)
+                {
+                    return i;
+                }
+            }
+
+            return target.Count;
+        }
+
+        private void Insert(ChangeAwareList<T> target, T item)
+        {
+            var index = GetInsertPosition(target, item);
+            target.Insert(index, item);
+        }
+
+        private IChangeSet<T> Process(ChangeAwareList<T> target, IChangeSet<T> changes)
+        {
+            // if all removes and not Clear, then more efficient to try clear range
+            if (changes.TotalChanges == changes.Removes && changes.All(c => c.Reason != ListChangeReason.Clear) && changes.Removes > 1)
+            {
+                var removed = changes.Unified().Select(u => u.Current);
+                target.RemoveMany(removed);
+                return target.CaptureChanges();
+            }
+
+            return ProcessImpl(target, changes);
+        }
+
+        private IChangeSet<T> ProcessImpl(ChangeAwareList<T> target, IChangeSet<T> changes)
+        {
+            var refreshes = new List<T>(changes.Refreshes);
+
+            foreach (var change in changes)
+            {
+                switch (change.Reason)
+                {
+                    case ListChangeReason.Add:
                     {
                         var current = change.Item.Current;
                         Insert(target, current);
                         break;
                     }
 
-                case ListChangeReason.AddRange:
+                    case ListChangeReason.AddRange:
                     {
                         var ordered = change.Range.OrderBy(t => t, _comparer).ToList();
                         if (target.Count == 0)
@@ -170,14 +168,14 @@ internal sealed class Sort<T>
                         break;
                     }
 
-                case ListChangeReason.Remove:
+                    case ListChangeReason.Remove:
                     {
                         var current = change.Item.Current;
                         Remove(target, current);
                         break;
                     }
 
-                case ListChangeReason.Refresh:
+                    case ListChangeReason.Refresh:
                     {
                         // add to refresh list so position can be calculated
                         refreshes.Add(change.Item.Current);
@@ -190,7 +188,7 @@ internal sealed class Sort<T>
                         break;
                     }
 
-                case ListChangeReason.Replace:
+                    case ListChangeReason.Replace:
                     {
                         var current = change.Item.Current;
 
@@ -201,80 +199,81 @@ internal sealed class Sort<T>
                         break;
                     }
 
-                case ListChangeReason.RemoveRange:
+                    case ListChangeReason.RemoveRange:
                     {
                         target.RemoveMany(change.Range);
                         break;
                     }
 
-                case ListChangeReason.Clear:
+                    case ListChangeReason.Clear:
                     {
                         target.Clear();
                         break;
                     }
+                }
             }
+
+            // Now deal with refreshes [can be expensive]
+            foreach (var item in refreshes)
+            {
+                var old = target.IndexOf(item);
+                if (old == -1)
+                {
+                    continue;
+                }
+
+                int newPosition = GetInsertPositionLinear(target, item);
+                if (old < newPosition)
+                {
+                    newPosition--;
+                }
+
+                if (old == newPosition)
+                {
+                    continue;
+                }
+
+                target.Move(old, newPosition);
+            }
+
+            return target.CaptureChanges();
         }
 
-        // Now deal with refreshes [can be expensive]
-        foreach (var item in refreshes)
+        private void Remove(ChangeAwareList<T> target, T item)
         {
-            var old = target.IndexOf(item);
-            if (old == -1)
-            {
-                continue;
-            }
-
-            int newPosition = GetInsertPositionLinear(target, item);
-            if (old < newPosition)
-            {
-                newPosition--;
-            }
-
-            if (old == newPosition)
-            {
-                continue;
-            }
-
-            target.Move(old, newPosition);
+            var index = GetCurrentPosition(target, item);
+            target.RemoveAt(index);
         }
 
-        return target.CaptureChanges();
-    }
-
-    private void Remove(ChangeAwareList<T> target, T item)
-    {
-        var index = GetCurrentPosition(target, item);
-        target.RemoveAt(index);
-    }
-
-    private IChangeSet<T> Reorder(ChangeAwareList<T> target)
-    {
-        int index = -1;
-        foreach (var item in target.OrderBy(t => t, _comparer).ToList())
+        private IChangeSet<T> Reorder(ChangeAwareList<T> target)
         {
-            index++;
-
-            var existing = target[index];
-
-            // if item is in the same place,
-            if (ReferenceEquals(item, existing))
+            int index = -1;
+            foreach (var item in target.OrderBy(t => t, _comparer).ToList())
             {
-                continue;
+                index++;
+
+                var existing = target[index];
+
+                // if item is in the same place,
+                if (ReferenceEquals(item, existing))
+                {
+                    continue;
+                }
+
+                // Cannot use binary search as Resort is implicit of a mutable change
+                var old = target.IndexOf(item);
+                target.Move(old, index);
             }
 
-            // Cannot use binary search as Resort is implicit of a mutable change
-            var old = target.IndexOf(item);
-            target.Move(old, index);
+            return target.CaptureChanges();
         }
 
-        return target.CaptureChanges();
-    }
-
-    private IChangeSet<T> Reset(List<T> original, ChangeAwareList<T> target)
-    {
-        var sorted = original.OrderBy(t => t, _comparer).ToList();
-        target.Clear();
-        target.AddRange(sorted);
-        return target.CaptureChanges();
+        private IChangeSet<T> Reset(List<T> original, ChangeAwareList<T> target)
+        {
+            var sorted = original.OrderBy(t => t, _comparer).ToList();
+            target.Clear();
+            target.AddRange(sorted);
+            return target.CaptureChanges();
+        }
     }
 }

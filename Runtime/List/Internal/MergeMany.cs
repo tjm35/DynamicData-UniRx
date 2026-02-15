@@ -3,30 +3,31 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Reactive.Linq;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-internal sealed class MergeMany<T, TDestination>
-    where T : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly Func<T, IObservable<TDestination>> _observableSelector;
-
-    private readonly IObservable<IChangeSet<T>> _source;
-
-    public MergeMany(IObservable<IChangeSet<T>> source, Func<T, IObservable<TDestination>> observableSelector)
+    internal sealed class MergeMany<T, TDestination>
+        where T : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _observableSelector = observableSelector ?? throw new ArgumentNullException(nameof(observableSelector));
-    }
+        private readonly Func<T, IObservable<TDestination>> _observableSelector;
 
-    public IObservable<TDestination> Run()
-    {
-        return Observable.Create<TDestination>(
-            observer =>
-            {
-                var locker = new object();
-                return _source.SubscribeMany(t => _observableSelector(t).Synchronize(locker).Subscribe(observer.OnNext)).Subscribe(_ => { }, observer.OnError);
-            });
+        private readonly IObservable<IChangeSet<T>> _source;
+
+        public MergeMany(IObservable<IChangeSet<T>> source, Func<T, IObservable<TDestination>> observableSelector)
+        {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _observableSelector = observableSelector ?? throw new ArgumentNullException(nameof(observableSelector));
+        }
+
+        public IObservable<TDestination> Run()
+        {
+            return Observable.Create<TDestination>(
+                observer =>
+                {
+                    var locker = new object();
+                    return _source.SubscribeMany(t => _observableSelector(t).Synchronize(locker).Subscribe(observer.OnNext)).Subscribe(_ => { }, observer.OnError);
+                });
+        }
     }
 }

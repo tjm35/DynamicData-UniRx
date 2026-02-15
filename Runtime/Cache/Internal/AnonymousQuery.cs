@@ -6,23 +6,24 @@ using System.Collections.Generic;
 
 using DynamicData.Kernel;
 
-namespace DynamicData.Cache.Internal;
-
-internal sealed class AnonymousQuery<TObject, TKey> : IQuery<TObject, TKey>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData.Cache.Internal
 {
-    private readonly Cache<TObject, TKey> _cache;
+    internal sealed class AnonymousQuery<TObject, TKey> : IQuery<TObject, TKey>
+        where TObject : notnull
+        where TKey : notnull
+    {
+        private readonly Cache<TObject, TKey> _cache;
 
-    public AnonymousQuery(Cache<TObject, TKey> cache) => _cache = cache.Clone();
+        public AnonymousQuery(Cache<TObject, TKey> cache) => _cache = cache.Clone();
 
-    public int Count => _cache.Count;
+        public int Count => _cache.Count;
 
-    public IEnumerable<TObject> Items => _cache.Items;
+        public IEnumerable<TObject> Items => _cache.Items;
 
-    public IEnumerable<TKey> Keys => _cache.Keys;
+        public IEnumerable<TKey> Keys => _cache.Keys;
 
-    public IEnumerable<KeyValuePair<TKey, TObject>> KeyValues => _cache.KeyValues;
+        public IEnumerable<KeyValuePair<TKey, TObject>> KeyValues => _cache.KeyValues;
 
-    public Optional<TObject> Lookup(TKey key) => _cache.Lookup(key);
+        public Optional<TObject> Lookup(TKey key) => _cache.Lookup(key);
+    }
 }

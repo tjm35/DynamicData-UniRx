@@ -5,27 +5,27 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DynamicData.List.Linq;
-
-internal class Reverser<T>
-    where T : notnull
+namespace DynamicData.List.Linq
 {
-    private int _length;
-
-    public IEnumerable<Change<T>> Reverse(IChangeSet<T> changes)
+    internal class Reverser<T>
+        where T : notnull
     {
-        foreach (var change in changes)
+        private int _length;
+
+        public IEnumerable<Change<T>> Reverse(IChangeSet<T> changes)
         {
-            switch (change.Reason)
+            foreach (var change in changes)
             {
-                case ListChangeReason.Add:
+                switch (change.Reason)
+                {
+                    case ListChangeReason.Add:
                     {
                         yield return new Change<T>(ListChangeReason.Add, change.Item.Current, _length - change.Item.CurrentIndex);
                         _length++;
                         break;
                     }
 
-                case ListChangeReason.AddRange:
+                    case ListChangeReason.AddRange:
                     {
                         var offset = change.Range.Index == -1 ? 0 : _length - change.Range.Index;
                         yield return new Change<T>(ListChangeReason.AddRange, change.Range.Reverse(), offset);
@@ -34,21 +34,21 @@ internal class Reverser<T>
                         break;
                     }
 
-                case ListChangeReason.Replace:
+                    case ListChangeReason.Replace:
                     {
                         var newIndex = _length - change.Item.CurrentIndex - 1;
                         yield return new Change<T>(ListChangeReason.Replace, change.Item.Current, change.Item.Previous.Value, newIndex, newIndex);
                         break;
                     }
 
-                case ListChangeReason.Remove:
+                    case ListChangeReason.Remove:
                     {
                         yield return new Change<T>(ListChangeReason.Remove, change.Item.Current, _length - change.Item.CurrentIndex - 1);
                         _length--;
                         break;
                     }
 
-                case ListChangeReason.RemoveRange:
+                    case ListChangeReason.RemoveRange:
                     {
                         var offset = _length - change.Range.Index - change.Range.Count;
                         yield return new Change<T>(ListChangeReason.RemoveRange, change.Range.Reverse(), offset);
@@ -57,7 +57,7 @@ internal class Reverser<T>
                         break;
                     }
 
-                case ListChangeReason.Moved:
+                    case ListChangeReason.Moved:
                     {
                         var currentIndex = _length - change.Item.CurrentIndex - 1;
                         var previousIndex = _length - change.Item.PreviousIndex - 1;
@@ -66,12 +66,13 @@ internal class Reverser<T>
                         break;
                     }
 
-                case ListChangeReason.Clear:
+                    case ListChangeReason.Clear:
                     {
                         yield return new Change<T>(ListChangeReason.Clear, change.Range.Reverse());
                         _length = 0;
                         break;
                     }
+                }
             }
         }
     }

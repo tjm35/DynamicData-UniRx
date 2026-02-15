@@ -3,35 +3,35 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Reactive.Linq;
-
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.Cache.Internal;
-
-internal class DeferUntilLoaded<TObject, TKey>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData.Cache.Internal
 {
-    private readonly IObservable<IChangeSet<TObject, TKey>> _result;
-
-    public DeferUntilLoaded(IObservableCache<TObject, TKey> source)
+    internal class DeferUntilLoaded<TObject, TKey>
+        where TObject : notnull
+        where TKey : notnull
     {
-        if (source is null)
+        private readonly IObservable<IChangeSet<TObject, TKey>> _result;
+
+        public DeferUntilLoaded(IObservableCache<TObject, TKey> source)
         {
-            throw new ArgumentNullException(nameof(source));
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            _result = source.CountChanged.Where(count => count != 0).Take(1).Select(_ => new ChangeSet<TObject, TKey>()).Concat(source.Connect()).NotEmpty();
         }
 
-        _result = source.CountChanged.Where(count => count != 0).Take(1).Select(_ => new ChangeSet<TObject, TKey>()).Concat(source.Connect()).NotEmpty();
-    }
+        public DeferUntilLoaded(IObservable<IChangeSet<TObject, TKey>> source)
+        {
+            _result = source.MonitorStatus().Where(status => status == ConnectionStatus.Loaded).Take(1).Select(_ => new ChangeSet<TObject, TKey>()).Concat(source).NotEmpty();
+        }
 
-    public DeferUntilLoaded(IObservable<IChangeSet<TObject, TKey>> source)
-    {
-        _result = source.MonitorStatus().Where(status => status == ConnectionStatus.Loaded).Take(1).Select(_ => new ChangeSet<TObject, TKey>()).Concat(source).NotEmpty();
-    }
-
-    public IObservable<IChangeSet<TObject, TKey>> Run()
-    {
-        return _result;
+        public IObservable<IChangeSet<TObject, TKey>> Run()
+        {
+            return _result;
+        }
     }
 }

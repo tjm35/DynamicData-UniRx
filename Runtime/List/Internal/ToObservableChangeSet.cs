@@ -2,37 +2,38 @@
 // Roland Pheasant licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-internal class ToObservableChangeSet<T>
-    where T : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly Func<T, TimeSpan?>? _expireAfter;
-
-    private readonly int _limitSizeTo;
-
-    private readonly IScheduler _scheduler;
-
-    private readonly IObservable<IEnumerable<T>> _source;
-
-    public ToObservableChangeSet(IObservable<T> source, Func<T, TimeSpan?>? expireAfter, int limitSizeTo, IScheduler? scheduler = null)
-        : this(source.Select(t => new[] { t }), expireAfter, limitSizeTo, scheduler)
+    internal class ToObservableChangeSet<T>
+        where T : notnull
     {
-    }
+        private readonly Func<T, TimeSpan?>? _expireAfter;
 
-    public ToObservableChangeSet(IObservable<IEnumerable<T>> source, Func<T, TimeSpan?>? expireAfter, int limitSizeTo, IScheduler? scheduler = null)
-    {
-        _source = source;
-        _expireAfter = expireAfter;
-        _limitSizeTo = limitSizeTo;
-        _scheduler = scheduler ?? Scheduler.Default;
-    }
+        private readonly int _limitSizeTo;
 
-    public IObservable<IChangeSet<T>> Run() => Observable.Create<IChangeSet<T>>(
+        private readonly IScheduler _scheduler;
+
+        private readonly IObservable<IEnumerable<T>> _source;
+
+        public ToObservableChangeSet(IObservable<T> source, Func<T, TimeSpan?>? expireAfter, int limitSizeTo, IScheduler? scheduler = null)
+            : this(source.Select(t => new[] { t }), expireAfter, limitSizeTo, scheduler)
+        {
+        }
+
+        public ToObservableChangeSet(IObservable<IEnumerable<T>> source, Func<T, TimeSpan?>? expireAfter, int limitSizeTo, IScheduler? scheduler = null)
+        {
+            _source = source;
+            _expireAfter = expireAfter;
+            _limitSizeTo = limitSizeTo;
+            _scheduler = scheduler ?? Scheduler.Default;
+        }
+
+        public IObservable<IChangeSet<T>> Run() => Observable.Create<IChangeSet<T>>(
             observer =>
             {
                 var locker = new object();
@@ -95,4 +96,5 @@ internal class ToObservableChangeSet<T>
                     timeExpiryDisposer,
                     dataSource.Connect().SubscribeSafe(observer));
             });
+    }
 }

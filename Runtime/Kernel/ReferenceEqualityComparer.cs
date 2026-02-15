@@ -4,19 +4,20 @@
 
 using System.Collections.Generic;
 
-namespace DynamicData.Kernel;
-
-internal class ReferenceEqualityComparer<T> : IEqualityComparer<T>
+namespace DynamicData.Kernel
 {
-    public static readonly IEqualityComparer<T> Instance = new ReferenceEqualityComparer<T>();
-
-    public bool Equals(T? x, T? y)
+    internal class ReferenceEqualityComparer<T> : IEqualityComparer<T>
     {
-        return ReferenceEquals(x, y);
-    }
+        public static readonly IEqualityComparer<T> Instance = new ReferenceEqualityComparer<T>();
 
-    public int GetHashCode(T? obj)
-    {
-        return obj is null ? 0 : obj.GetHashCode();
+        public bool Equals(T? x, T? y)
+        {
+            return ReferenceEquals(x, y);
+        }
+
+        public int GetHashCode(T? obj)
+        {
+            return obj is null ? 0 : obj.GetHashCode();
+        }
     }
 }

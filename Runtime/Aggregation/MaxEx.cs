@@ -5,211 +5,212 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Linq;
+using UniRx;
 
-namespace DynamicData.Aggregation;
-
-/// <summary>
-/// Maximum and minimum value extensions.
-/// </summary>
-public static class MaxEx
+namespace DynamicData.Aggregation
 {
-    private enum MaxOrMin
-    {
-        Max,
-
-        Min
-    }
-
     /// <summary>
-    /// Continually calculates the maximum value from the underlying data source.
+    /// Maximum and minimum value extensions.
     /// </summary>
-    /// <typeparam name="TObject">The type of the object.</typeparam>
-    /// <typeparam name="TResult">The type of the result.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <param name="valueSelector">The value selector.</param>
-    /// <param name="emptyValue">The value to use when the underlying collection is empty.</param>
-    /// <returns>
-    /// A distinct observable of the maximum item.
-    /// </returns>
-    public static IObservable<TResult> Maximum<TObject, TResult>(this IObservable<IChangeSet<TObject>> source, Func<TObject, TResult> valueSelector, TResult emptyValue = default)
-        where TObject : notnull
-        where TResult : struct, IComparable<TResult>
+    public static class MaxEx
     {
-        return source.ToChangesAndCollection().Calculate(valueSelector, MaxOrMin.Max, emptyValue);
-    }
-
-    /// <summary>
-    /// Continually calculates the maximum value from the underlying data source.
-    /// </summary>
-    /// <typeparam name="TObject">The type of the object.</typeparam>
-    /// <typeparam name="TKey">The type of the key.</typeparam>
-    /// <typeparam name="TResult">The type of the result.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <param name="valueSelector">The value selector.</param>
-    /// <param name="emptyValue">The value to use when the underlying collection is empty.</param>
-    /// <returns>
-    /// A distinct observable of the maximum item.
-    /// </returns>
-    public static IObservable<TResult> Maximum<TObject, TKey, TResult>(this IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, TResult> valueSelector, TResult emptyValue = default)
-        where TObject : notnull
-        where TKey : notnull
-        where TResult : struct, IComparable<TResult>
-    {
-        return source.ToChangesAndCollection().Calculate(valueSelector, MaxOrMin.Max, emptyValue);
-    }
-
-    /// <summary>
-    /// Continually calculates the minimum value from the underlying data source.
-    /// </summary>
-    /// <typeparam name="TObject">The type of the object.</typeparam>
-    /// <typeparam name="TResult">The type of the result.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <param name="valueSelector">The value selector.</param>
-    /// <param name="emptyValue">The value to use when the underlying collection is empty.</param>
-    /// <returns>A distinct observable of the minimums item.</returns>
-    public static IObservable<TResult> Minimum<TObject, TResult>(this IObservable<IChangeSet<TObject>> source, Func<TObject, TResult> valueSelector, TResult emptyValue = default)
-        where TObject : notnull
-        where TResult : struct, IComparable<TResult>
-    {
-        return source.ToChangesAndCollection().Calculate(valueSelector, MaxOrMin.Min, emptyValue);
-    }
-
-    /// <summary>
-    /// Continually calculates the minimum value from the underlying data source.
-    /// </summary>
-    /// <typeparam name="TObject">The type of the object.</typeparam>
-    /// <typeparam name="TKey">The type of the key.</typeparam>
-    /// <typeparam name="TResult">The type of the result.</typeparam>
-    /// <param name="source">The source.</param>
-    /// <param name="valueSelector">The value selector.</param>
-    /// <param name="emptyValue">The value to use when the underlying collection is empty.</param>
-    /// <returns>
-    /// A distinct observable of the minimums item.
-    /// </returns>
-    public static IObservable<TResult> Minimum<TObject, TKey, TResult>(this IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, TResult> valueSelector, TResult emptyValue = default)
-        where TObject : notnull
-        where TKey : notnull
-        where TResult : struct, IComparable<TResult>
-    {
-        return source.ToChangesAndCollection().Calculate(valueSelector, MaxOrMin.Min, emptyValue);
-    }
-
-    private static IObservable<TResult> Calculate<TObject, TResult>(this IObservable<ChangesAndCollection<TObject>> source, Func<TObject, TResult> valueSelector, MaxOrMin maxOrMin, TResult emptyValue = default)
-        where TResult : struct, IComparable<TResult>
-    {
-        if (source is null)
+        private enum MaxOrMin
         {
-            throw new ArgumentNullException(nameof(source));
+            Max,
+
+            Min
         }
 
-        if (valueSelector is null)
+        /// <summary>
+        /// Continually calculates the maximum value from the underlying data source.
+        /// </summary>
+        /// <typeparam name="TObject">The type of the object.</typeparam>
+        /// <typeparam name="TResult">The type of the result.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <param name="valueSelector">The value selector.</param>
+        /// <param name="emptyValue">The value to use when the underlying collection is empty.</param>
+        /// <returns>
+        /// A distinct observable of the maximum item.
+        /// </returns>
+        public static IObservable<TResult> Maximum<TObject, TResult>(this IObservable<IChangeSet<TObject>> source, Func<TObject, TResult> valueSelector, TResult emptyValue = default)
+            where TObject : notnull
+            where TResult : struct, IComparable<TResult>
         {
-            throw new ArgumentNullException(nameof(valueSelector));
+            return source.ToChangesAndCollection().Calculate(valueSelector, MaxOrMin.Max, emptyValue);
         }
 
-        return source.Scan(
-            default(TResult?),
-            (state, latest) =>
+        /// <summary>
+        /// Continually calculates the maximum value from the underlying data source.
+        /// </summary>
+        /// <typeparam name="TObject">The type of the object.</typeparam>
+        /// <typeparam name="TKey">The type of the key.</typeparam>
+        /// <typeparam name="TResult">The type of the result.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <param name="valueSelector">The value selector.</param>
+        /// <param name="emptyValue">The value to use when the underlying collection is empty.</param>
+        /// <returns>
+        /// A distinct observable of the maximum item.
+        /// </returns>
+        public static IObservable<TResult> Maximum<TObject, TKey, TResult>(this IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, TResult> valueSelector, TResult emptyValue = default)
+            where TObject : notnull
+            where TKey : notnull
+            where TResult : struct, IComparable<TResult>
+        {
+            return source.ToChangesAndCollection().Calculate(valueSelector, MaxOrMin.Max, emptyValue);
+        }
+
+        /// <summary>
+        /// Continually calculates the minimum value from the underlying data source.
+        /// </summary>
+        /// <typeparam name="TObject">The type of the object.</typeparam>
+        /// <typeparam name="TResult">The type of the result.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <param name="valueSelector">The value selector.</param>
+        /// <param name="emptyValue">The value to use when the underlying collection is empty.</param>
+        /// <returns>A distinct observable of the minimums item.</returns>
+        public static IObservable<TResult> Minimum<TObject, TResult>(this IObservable<IChangeSet<TObject>> source, Func<TObject, TResult> valueSelector, TResult emptyValue = default)
+            where TObject : notnull
+            where TResult : struct, IComparable<TResult>
+        {
+            return source.ToChangesAndCollection().Calculate(valueSelector, MaxOrMin.Min, emptyValue);
+        }
+
+        /// <summary>
+        /// Continually calculates the minimum value from the underlying data source.
+        /// </summary>
+        /// <typeparam name="TObject">The type of the object.</typeparam>
+        /// <typeparam name="TKey">The type of the key.</typeparam>
+        /// <typeparam name="TResult">The type of the result.</typeparam>
+        /// <param name="source">The source.</param>
+        /// <param name="valueSelector">The value selector.</param>
+        /// <param name="emptyValue">The value to use when the underlying collection is empty.</param>
+        /// <returns>
+        /// A distinct observable of the minimums item.
+        /// </returns>
+        public static IObservable<TResult> Minimum<TObject, TKey, TResult>(this IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, TResult> valueSelector, TResult emptyValue = default)
+            where TObject : notnull
+            where TKey : notnull
+            where TResult : struct, IComparable<TResult>
+        {
+            return source.ToChangesAndCollection().Calculate(valueSelector, MaxOrMin.Min, emptyValue);
+        }
+
+        private static IObservable<TResult> Calculate<TObject, TResult>(this IObservable<ChangesAndCollection<TObject>> source, Func<TObject, TResult> valueSelector, MaxOrMin maxOrMin, TResult emptyValue = default)
+            where TResult : struct, IComparable<TResult>
+        {
+            if (source is null)
             {
-                var current = state;
-                var requiresReset = false;
+                throw new ArgumentNullException(nameof(source));
+            }
 
-                foreach (var change in latest.Changes)
+            if (valueSelector is null)
+            {
+                throw new ArgumentNullException(nameof(valueSelector));
+            }
+
+            return source.Scan(
+                default(TResult?),
+                (state, latest) =>
                 {
-                    var value = valueSelector(change.Item);
-                    current ??= value;
+                    var current = state;
+                    var requiresReset = false;
 
-                    if (change.Type == AggregateType.Add)
+                    foreach (var change in latest.Changes)
                     {
-                        if (maxOrMin is MaxOrMin.Max)
+                        var value = valueSelector(change.Item);
+                        current ??= value;
+
+                        if (change.Type == AggregateType.Add)
                         {
-                            if (value.CompareTo(current.Value) > 0)
+                            if (maxOrMin is MaxOrMin.Max)
+                            {
+                                if (value.CompareTo(current.Value) > 0)
+                                {
+                                    current = value;
+                                }
+                            }
+                            else if (value.CompareTo(current.Value) < 0)
                             {
                                 current = value;
                             }
                         }
-                        else if (value.CompareTo(current.Value) < 0)
+                        else
                         {
-                            current = value;
+                            // check whether the max / min has been removed. If so we need to look
+                            // up the latest from the underlying collection
+                            if (value.CompareTo(current.Value) != 0)
+                            {
+                                continue;
+                            }
+
+                            requiresReset = true;
+                            break;
                         }
                     }
-                    else
+
+                    if (requiresReset)
                     {
-                        // check whether the max / min has been removed. If so we need to look
-                        // up the latest from the underlying collection
-                        if (value.CompareTo(current.Value) != 0)
+                        var collection = latest.Collection;
+                        if (collection.Count == 0)
                         {
-                            continue;
+                            current = default;
                         }
-
-                        requiresReset = true;
-                        break;
+                        else
+                        {
+                            current = maxOrMin == MaxOrMin.Max ? collection.Max(valueSelector) : collection.Min(valueSelector);
+                        }
                     }
-                }
 
-                if (requiresReset)
+                    return current;
+                }).Select(t => t ?? emptyValue).DistinctUntilChanged();
+        }
+
+        private static IObservable<ChangesAndCollection<TObject>> ToChangesAndCollection<TObject, TKey>(this IObservable<IChangeSet<TObject, TKey>> source)
+            where TObject : notnull
+            where TKey : notnull
+        {
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            return source.Publish(
+                shared =>
                 {
-                    var collection = latest.Collection;
-                    if (collection.Count == 0)
-                    {
-                        current = default;
-                    }
-                    else
-                    {
-                        current = maxOrMin == MaxOrMin.Max ? collection.Max(valueSelector) : collection.Min(valueSelector);
-                    }
-                }
-
-                return current;
-            }).Select(t => t ?? emptyValue).DistinctUntilChanged();
-    }
-
-    private static IObservable<ChangesAndCollection<TObject>> ToChangesAndCollection<TObject, TKey>(this IObservable<IChangeSet<TObject, TKey>> source)
-        where TObject : notnull
-        where TKey : notnull
-    {
-        if (source is null)
-        {
-            throw new ArgumentNullException(nameof(source));
+                    var changes = shared.ForAggregation();
+                    var data = shared.ToCollection();
+                    return data.Zip(changes, (d, c) => new ChangesAndCollection<TObject>(c, d));
+                });
         }
 
-        return source.Publish(
-            shared =>
+        private static IObservable<ChangesAndCollection<TObject>> ToChangesAndCollection<TObject>(this IObservable<IChangeSet<TObject>> source)
+            where TObject : notnull
+        {
+            if (source is null)
             {
-                var changes = shared.ForAggregation();
-                var data = shared.ToCollection();
-                return data.Zip(changes, (d, c) => new ChangesAndCollection<TObject>(c, d));
-            });
-    }
+                throw new ArgumentNullException(nameof(source));
+            }
 
-    private static IObservable<ChangesAndCollection<TObject>> ToChangesAndCollection<TObject>(this IObservable<IChangeSet<TObject>> source)
-        where TObject : notnull
-    {
-        if (source is null)
-        {
-            throw new ArgumentNullException(nameof(source));
+            return source.Publish(
+                shared =>
+                {
+                    var changes = shared.ForAggregation();
+                    var data = shared.ToCollection();
+                    return data.Zip(changes, (d, c) => new ChangesAndCollection<TObject>(c, d));
+                });
         }
 
-        return source.Publish(
-            shared =>
+        private class ChangesAndCollection<T>
+        {
+            public ChangesAndCollection(IAggregateChangeSet<T> changes, IReadOnlyCollection<T> collection)
             {
-                var changes = shared.ForAggregation();
-                var data = shared.ToCollection();
-                return data.Zip(changes, (d, c) => new ChangesAndCollection<TObject>(c, d));
-            });
-    }
+                Changes = changes;
+                Collection = collection;
+            }
 
-    private class ChangesAndCollection<T>
-    {
-        public ChangesAndCollection(IAggregateChangeSet<T> changes, IReadOnlyCollection<T> collection)
-        {
-            Changes = changes;
-            Collection = collection;
+            public IAggregateChangeSet<T> Changes { get; }
+
+            public IReadOnlyCollection<T> Collection { get; }
         }
-
-        public IAggregateChangeSet<T> Changes { get; }
-
-        public IReadOnlyCollection<T> Collection { get; }
     }
 }

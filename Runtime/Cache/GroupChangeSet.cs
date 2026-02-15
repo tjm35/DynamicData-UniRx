@@ -5,21 +5,22 @@
 using System.Collections.Generic;
 
 // ReSharper disable once CheckNamespace
-namespace DynamicData;
-
-internal sealed class GroupChangeSet<TObject, TKey, TGroupKey> : ChangeSet<IGroup<TObject, TKey, TGroupKey>, TGroupKey>, IGroupChangeSet<TObject, TKey, TGroupKey>
-    where TObject : notnull
-    where TKey : notnull
-    where TGroupKey : notnull
+namespace DynamicData
 {
-    public static readonly new IGroupChangeSet<TObject, TKey, TGroupKey> Empty = new GroupChangeSet<TObject, TKey, TGroupKey>();
-
-    public GroupChangeSet(IEnumerable<Change<IGroup<TObject, TKey, TGroupKey>, TGroupKey>> items)
-        : base(items)
+    internal sealed class GroupChangeSet<TObject, TKey, TGroupKey> : ChangeSet<IGroup<TObject, TKey, TGroupKey>, TGroupKey>, IGroupChangeSet<TObject, TKey, TGroupKey>
+        where TObject : notnull
+        where TKey : notnull
+        where TGroupKey : notnull
     {
-    }
+        public static readonly new IGroupChangeSet<TObject, TKey, TGroupKey> Empty = new GroupChangeSet<TObject, TKey, TGroupKey>();
 
-    private GroupChangeSet()
-    {
+        public GroupChangeSet(IEnumerable<Change<IGroup<TObject, TKey, TGroupKey>, TGroupKey>> items)
+            : base(items)
+        {
+        }
+
+        private GroupChangeSet()
+        {
+        }
     }
 }

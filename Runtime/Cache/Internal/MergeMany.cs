@@ -2,79 +2,79 @@
 // Roland Pheasant licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Reactive;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
+using System;
+using System.Threading;
+using UniRx;
 
-namespace DynamicData.Cache.Internal;
-
-internal class MergeMany<TObject, TKey, TDestination>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData.Cache.Internal
 {
-    private readonly Func<TObject, TKey, IObservable<TDestination>> _observableSelector;
-
-    private readonly IObservable<IChangeSet<TObject, TKey>> _source;
-
-    public MergeMany(IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, TKey, IObservable<TDestination>> observableSelector)
+    internal class MergeMany<TObject, TKey, TDestination>
+        where TObject : notnull
+        where TKey : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _observableSelector = observableSelector ?? throw new ArgumentNullException(nameof(observableSelector));
-    }
+        private readonly Func<TObject, TKey, IObservable<TDestination>> _observableSelector;
 
-    public MergeMany(IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, IObservable<TDestination>> observableSelector)
-    {
-        if (observableSelector is null)
+        private readonly IObservable<IChangeSet<TObject, TKey>> _source;
+
+        public MergeMany(IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, TKey, IObservable<TDestination>> observableSelector)
         {
-            throw new ArgumentNullException(nameof(observableSelector));
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _observableSelector = observableSelector ?? throw new ArgumentNullException(nameof(observableSelector));
         }
 
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _observableSelector = (t, _) => observableSelector(t);
-    }
-
-    public IObservable<TDestination> Run()
-    {
-        return Observable.Create<TDestination>(
-            observer =>
+        public MergeMany(IObservable<IChangeSet<TObject, TKey>> source, Func<TObject, IObservable<TDestination>> observableSelector)
+        {
+            if (observableSelector is null)
             {
-                var counter = new SubscriptionCounter();
-                var locker = new object();
-                var disposable = _source.Concat(counter.DeferCleanup)
-                                                .SubscribeMany((t, key) =>
-                                                {
-                                                    counter.Added();
-                                                    return _observableSelector(t, key).Synchronize(locker).Finally(() => counter.Finally()).Subscribe(observer.OnNext, _ => { }, () => { });
-                                                })
-                                                .Subscribe(_ => { }, observer.OnError, observer.OnCompleted);
+                throw new ArgumentNullException(nameof(observableSelector));
+            }
 
-                return new CompositeDisposable(disposable, counter);
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _observableSelector = (t, _) => observableSelector(t);
+        }
+
+        public IObservable<TDestination> Run()
+        {
+            return Observable.Create<TDestination>(
+                observer =>
+                {
+                    var counter = new SubscriptionCounter();
+                    var locker = new object();
+                    var disposable = _source.Concat(counter.DeferCleanup)
+                        .SubscribeMany((t, key) =>
+                        {
+                            counter.Added();
+                            return _observableSelector(t, key).Synchronize(locker).Finally(() => counter.Finally()).Subscribe(observer.OnNext, _ => { }, () => { });
+                        })
+                        .Subscribe(_ => { }, observer.OnError, observer.OnCompleted);
+
+                    return new CompositeDisposable(disposable, counter);
+                });
+        }
+
+        private sealed class SubscriptionCounter : IDisposable
+        {
+            private readonly Subject<IChangeSet<TObject, TKey>> _subject = new();
+            private int _subscriptionCount = 1;
+
+            public IObservable<IChangeSet<TObject, TKey>> DeferCleanup => Observable.Defer(() =>
+            {
+                CheckCompleted();
+                return _subject.AsObservable();
             });
-    }
 
-    private sealed class SubscriptionCounter : IDisposable
-    {
-        private readonly Subject<IChangeSet<TObject, TKey>> _subject = new();
-        private int _subscriptionCount = 1;
+            public void Added() => _ = Interlocked.Increment(ref _subscriptionCount);
 
-        public IObservable<IChangeSet<TObject, TKey>> DeferCleanup => Observable.Defer(() =>
-        {
-            CheckCompleted();
-            return _subject.AsObservable();
-        });
+            public void Finally() => CheckCompleted();
 
-        public void Added() => _ = Interlocked.Increment(ref _subscriptionCount);
+            public void Dispose() => _subject.Dispose();
 
-        public void Finally() => CheckCompleted();
-
-        public void Dispose() => _subject.Dispose();
-
-        private void CheckCompleted()
-        {
-            if (Interlocked.Decrement(ref _subscriptionCount) == 0)
+            private void CheckCompleted()
             {
-                _subject.OnCompleted();
+                if (Interlocked.Decrement(ref _subscriptionCount) == 0)
+                {
+                    _subject.OnCompleted();
+                }
             }
         }
     }

@@ -5,17 +5,18 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DynamicData.Cache.Internal;
-
-internal static class DictionaryExtensions
+namespace DynamicData.Cache.Internal
 {
-    internal static IEnumerable<T> GetOrEmpty<TDictKey, T>(this IDictionary<TDictKey, IEnumerable<T>> dict, TDictKey key)
+    internal static class DictionaryExtensions
     {
-        if (dict.ContainsKey(key))
+        internal static IEnumerable<T> GetOrEmpty<TDictKey, T>(this IDictionary<TDictKey, IEnumerable<T>> dict, TDictKey key)
         {
-            return dict[key];
-        }
+            if (dict.ContainsKey(key))
+            {
+                return dict[key];
+            }
 
-        return Enumerable.Empty<T>();
+            return Enumerable.Empty<T>();
+        }
     }
 }

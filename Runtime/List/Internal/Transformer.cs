@@ -5,37 +5,36 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Linq;
-
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-internal sealed class Transformer<TSource, TDestination>
-    where TSource : notnull
-    where TDestination : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly Func<TSource, Optional<TDestination>, int, TransformedItemContainer> _containerFactory;
-
-    private readonly IObservable<IChangeSet<TSource>> _source;
-
-    private readonly bool _transformOnRefresh;
-
-    public Transformer(IObservable<IChangeSet<TSource>> source, Func<TSource, Optional<TDestination>, int, TDestination> factory, bool transformOnRefresh)
+    internal sealed class Transformer<TSource, TDestination>
+        where TSource : notnull
+        where TDestination : notnull
     {
-        if (factory is null)
+        private readonly Func<TSource, Optional<TDestination>, int, TransformedItemContainer> _containerFactory;
+
+        private readonly IObservable<IChangeSet<TSource>> _source;
+
+        private readonly bool _transformOnRefresh;
+
+        public Transformer(IObservable<IChangeSet<TSource>> source, Func<TSource, Optional<TDestination>, int, TDestination> factory, bool transformOnRefresh)
         {
-            throw new ArgumentNullException(nameof(factory));
+            if (factory is null)
+            {
+                throw new ArgumentNullException(nameof(factory));
+            }
+
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _transformOnRefresh = transformOnRefresh;
+            _containerFactory = (item, prev, index) => new TransformedItemContainer(item, factory(item, prev, index));
         }
 
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _transformOnRefresh = transformOnRefresh;
-        _containerFactory = (item, prev, index) => new TransformedItemContainer(item, factory(item, prev, index));
-    }
+        public IObservable<IChangeSet<TDestination>> Run() => Observable.Defer(RunImpl);
 
-    public IObservable<IChangeSet<TDestination>> Run() => Observable.Defer(RunImpl);
-
-    private IObservable<IChangeSet<TDestination>> RunImpl() => _source.Scan(new ChangeAwareList<TransformedItemContainer>(), (state, changes) =>
+        private IObservable<IChangeSet<TDestination>> RunImpl() => _source.Scan(new ChangeAwareList<TransformedItemContainer>(), (state, changes) =>
             {
                 Transform(state, changes);
                 return state;
@@ -46,18 +45,18 @@ internal sealed class Transformer<TSource, TDestination>
                 return changed.Transform(container => container.Destination);
             });
 
-    private void Transform(ChangeAwareList<TransformedItemContainer> transformed, IChangeSet<TSource> changes)
-    {
-        if (changes is null)
+        private void Transform(ChangeAwareList<TransformedItemContainer> transformed, IChangeSet<TSource> changes)
         {
-            throw new ArgumentNullException(nameof(changes));
-        }
-
-        foreach (var item in changes)
-        {
-            switch (item.Reason)
+            if (changes is null)
             {
-                case ListChangeReason.Add:
+                throw new ArgumentNullException(nameof(changes));
+            }
+
+            foreach (var item in changes)
+            {
+                switch (item.Reason)
+                {
+                    case ListChangeReason.Add:
                     {
                         var change = item.Item;
                         if (change.CurrentIndex < 0 | change.CurrentIndex >= transformed.Count)
@@ -73,7 +72,7 @@ internal sealed class Transformer<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.AddRange:
+                    case ListChangeReason.AddRange:
                     {
                         var startIndex = item.Range.Index < 0 ? transformed.Count : item.Range.Index;
 
@@ -82,7 +81,7 @@ internal sealed class Transformer<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.Refresh:
+                    case ListChangeReason.Refresh:
                     {
                         var change = item.Item;
                         if (_transformOnRefresh)
@@ -98,7 +97,7 @@ internal sealed class Transformer<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.Replace:
+                    case ListChangeReason.Replace:
                     {
                         var change = item.Item;
                         Optional<TDestination> previous = transformed[change.PreviousIndex].Destination;
@@ -115,7 +114,7 @@ internal sealed class Transformer<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.Remove:
+                    case ListChangeReason.Remove:
                     {
                         var change = item.Item;
                         bool hasIndex = change.CurrentIndex >= 0;
@@ -137,7 +136,7 @@ internal sealed class Transformer<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.RemoveRange:
+                    case ListChangeReason.RemoveRange:
                     {
                         if (item.Range.Index >= 0)
                         {
@@ -152,7 +151,7 @@ internal sealed class Transformer<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.Clear:
+                    case ListChangeReason.Clear:
                     {
                         // i.e. need to store transformed reference so we can correctly clear
                         var toClear = new Change<TransformedItemContainer>(ListChangeReason.Clear, transformed);
@@ -161,7 +160,7 @@ internal sealed class Transformer<TSource, TDestination>
                         break;
                     }
 
-                case ListChangeReason.Moved:
+                    case ListChangeReason.Moved:
                     {
                         var change = item.Item;
                         bool hasIndex = change.CurrentIndex >= 0;
@@ -173,61 +172,62 @@ internal sealed class Transformer<TSource, TDestination>
                         transformed.Move(change.PreviousIndex, change.CurrentIndex);
                         break;
                     }
+                }
             }
         }
-    }
 
-    internal sealed class TransformedItemContainer : IEquatable<TransformedItemContainer>
-    {
-        public TransformedItemContainer(TSource source, TDestination destination)
+        internal sealed class TransformedItemContainer : IEquatable<TransformedItemContainer>
         {
-            Source = source;
-            Destination = destination;
+            public TransformedItemContainer(TSource source, TDestination destination)
+            {
+                Source = source;
+                Destination = destination;
+            }
+
+            public TDestination Destination { get; }
+
+            public TSource Source { get; }
+
+            public static bool operator ==(TransformedItemContainer left, TransformedItemContainer right) => Equals(left, right);
+
+            public static bool operator !=(TransformedItemContainer left, TransformedItemContainer right) => !Equals(left, right);
+
+            public bool Equals(TransformedItemContainer? other)
+            {
+                if (ReferenceEquals(null, other))
+                {
+                    return false;
+                }
+
+                if (ReferenceEquals(this, other))
+                {
+                    return true;
+                }
+
+                return EqualityComparer<TSource>.Default.Equals(Source, other.Source);
+            }
+
+            public override bool Equals(object? obj)
+            {
+                if (ReferenceEquals(null, obj))
+                {
+                    return false;
+                }
+
+                if (ReferenceEquals(this, obj))
+                {
+                    return true;
+                }
+
+                if (obj.GetType() != GetType())
+                {
+                    return false;
+                }
+
+                return Equals((TransformedItemContainer)obj);
+            }
+
+            public override int GetHashCode() => Source is null ? 0 : EqualityComparer<TSource>.Default.GetHashCode(Source);
         }
-
-        public TDestination Destination { get; }
-
-        public TSource Source { get; }
-
-        public static bool operator ==(TransformedItemContainer left, TransformedItemContainer right) => Equals(left, right);
-
-        public static bool operator !=(TransformedItemContainer left, TransformedItemContainer right) => !Equals(left, right);
-
-        public bool Equals(TransformedItemContainer? other)
-        {
-            if (ReferenceEquals(null, other))
-            {
-                return false;
-            }
-
-            if (ReferenceEquals(this, other))
-            {
-                return true;
-            }
-
-            return EqualityComparer<TSource>.Default.Equals(Source, other.Source);
-        }
-
-        public override bool Equals(object? obj)
-        {
-            if (ReferenceEquals(null, obj))
-            {
-                return false;
-            }
-
-            if (ReferenceEquals(this, obj))
-            {
-                return true;
-            }
-
-            if (obj.GetType() != GetType())
-            {
-                return false;
-            }
-
-            return Equals((TransformedItemContainer)obj);
-        }
-
-        public override int GetHashCode() => Source is null ? 0 : EqualityComparer<TSource>.Default.GetHashCode(Source);
     }
 }

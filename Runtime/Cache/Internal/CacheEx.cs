@@ -6,35 +6,36 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DynamicData.Cache.Internal;
-
-internal static class CacheEx
+namespace DynamicData.Cache.Internal
 {
-    public static void Clone<TKey, TObject>(this IDictionary<TKey, TObject> source, IChangeSet<TObject, TKey> changes)
-        where TKey : notnull
-        where TObject : notnull
+    internal static class CacheEx
     {
-        foreach (var item in changes.ToConcreteType())
+        public static void Clone<TKey, TObject>(this IDictionary<TKey, TObject> source, IChangeSet<TObject, TKey> changes)
+            where TKey : notnull
+            where TObject : notnull
         {
-            switch (item.Reason)
+            foreach (var item in changes.ToConcreteType())
             {
-                case ChangeReason.Update:
-                case ChangeReason.Add:
-                    source[item.Key] = item.Current;
-                    break;
+                switch (item.Reason)
+                {
+                    case ChangeReason.Update:
+                    case ChangeReason.Add:
+                        source[item.Key] = item.Current;
+                        break;
 
-                case ChangeReason.Remove:
-                    source.Remove(item.Key);
-                    break;
+                    case ChangeReason.Remove:
+                        source.Remove(item.Key);
+                        break;
+                }
             }
         }
-    }
 
-    public static IChangeSet<TObject, TKey> GetInitialUpdates<TObject, TKey>(this ChangeAwareCache<TObject, TKey> source, Func<TObject, bool>? filter = null)
-        where TObject : notnull
-        where TKey : notnull
-    {
-        var filtered = filter is null ? source.KeyValues : source.KeyValues.Where(kv => filter(kv.Value));
-        return new ChangeSet<TObject, TKey>(filtered.Select(i => new Change<TObject, TKey>(ChangeReason.Add, i.Key, i.Value)));
+        public static IChangeSet<TObject, TKey> GetInitialUpdates<TObject, TKey>(this ChangeAwareCache<TObject, TKey> source, Func<TObject, bool>? filter = null)
+            where TObject : notnull
+            where TKey : notnull
+        {
+            var filtered = filter is null ? source.KeyValues : source.KeyValues.Where(kv => filter(kv.Value));
+            return new ChangeSet<TObject, TKey>(filtered.Select(i => new Change<TObject, TKey>(ChangeReason.Add, i.Key, i.Value)));
+        }
     }
 }

@@ -8,45 +8,46 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DynamicData.Kernel;
-
-internal static class ParallelEx
+namespace DynamicData.Kernel
 {
-    [SuppressMessage("Design", "CA2000: Dispose SemaphoreSlim", Justification = "Captured in lambda, can cause problems.")]
-    public static async Task<IEnumerable<TDestination>> SelectParallel<TSource, TDestination>(this IEnumerable<TSource> source, Func<TSource, Task<TDestination>> selector, int maximumThreads = 5)
+    internal static class ParallelEx
     {
-        if (source is null)
+        [SuppressMessage("Design", "CA2000: Dispose SemaphoreSlim", Justification = "Captured in lambda, can cause problems.")]
+        public static async Task<IEnumerable<TDestination>> SelectParallel<TSource, TDestination>(this IEnumerable<TSource> source, Func<TSource, Task<TDestination>> selector, int maximumThreads = 5)
         {
-            throw new ArgumentNullException(nameof(source));
-        }
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
 
-        if (selector is null)
-        {
-            throw new ArgumentNullException(nameof(selector));
-        }
+            if (selector is null)
+            {
+                throw new ArgumentNullException(nameof(selector));
+            }
 
-        var semaphore = new SemaphoreSlim(maximumThreads);
-        var tasks = new List<Task<TDestination>>();
+            var semaphore = new SemaphoreSlim(maximumThreads);
+            var tasks = new List<Task<TDestination>>();
 
-        foreach (var item in source)
-        {
-            await semaphore.WaitAsync().ConfigureAwait(false);
+            foreach (var item in source)
+            {
+                await semaphore.WaitAsync().ConfigureAwait(false);
 
-            tasks.Add(
-                Task.Run(
-                    async () =>
-                    {
-                        try
+                tasks.Add(
+                    Task.Run(
+                        async () =>
                         {
-                            return await selector(item).ConfigureAwait(false);
-                        }
-                        finally
-                        {
-                            semaphore.Release();
-                        }
-                    }));
-        }
+                            try
+                            {
+                                return await selector(item).ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                semaphore.Release();
+                            }
+                        }));
+            }
 
-        return await Task.WhenAll(tasks).ConfigureAwait(false);
+            return await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
     }
 }

@@ -7,54 +7,55 @@ using System.Collections.Generic;
 
 using DynamicData.List.Internal;
 
-namespace DynamicData.List.Linq;
-
-internal class UnifiedChangeEnumerator<T> : IEnumerable<UnifiedChange<T>>
-    where T : notnull
+namespace DynamicData.List.Linq
 {
-    private readonly IChangeSet<T> _changeSet;
-
-    public UnifiedChangeEnumerator(IChangeSet<T> changeSet)
+    internal class UnifiedChangeEnumerator<T> : IEnumerable<UnifiedChange<T>>
+        where T : notnull
     {
-        _changeSet = changeSet;
-    }
+        private readonly IChangeSet<T> _changeSet;
 
-    public IEnumerator<UnifiedChange<T>> GetEnumerator()
-    {
-        foreach (var change in _changeSet)
+        public UnifiedChangeEnumerator(IChangeSet<T> changeSet)
         {
-            if (change.Type == ChangeType.Item)
+            _changeSet = changeSet;
+        }
+
+        public IEnumerator<UnifiedChange<T>> GetEnumerator()
+        {
+            foreach (var change in _changeSet)
             {
-                yield return new UnifiedChange<T>(change.Reason, change.Item.Current, change.Item.Previous);
-            }
-            else
-            {
-                foreach (var item in change.Range)
+                if (change.Type == ChangeType.Item)
                 {
-                    switch (change.Reason)
+                    yield return new UnifiedChange<T>(change.Reason, change.Item.Current, change.Item.Previous);
+                }
+                else
+                {
+                    foreach (var item in change.Range)
                     {
-                        case ListChangeReason.AddRange:
-                            yield return new UnifiedChange<T>(ListChangeReason.Add, item);
-                            break;
+                        switch (change.Reason)
+                        {
+                            case ListChangeReason.AddRange:
+                                yield return new UnifiedChange<T>(ListChangeReason.Add, item);
+                                break;
 
-                        case ListChangeReason.RemoveRange:
-                            yield return new UnifiedChange<T>(ListChangeReason.Remove, item);
-                            break;
+                            case ListChangeReason.RemoveRange:
+                                yield return new UnifiedChange<T>(ListChangeReason.Remove, item);
+                                break;
 
-                        case ListChangeReason.Clear:
-                            yield return new UnifiedChange<T>(ListChangeReason.Clear, item);
-                            break;
+                            case ListChangeReason.Clear:
+                                yield return new UnifiedChange<T>(ListChangeReason.Clear, item);
+                                break;
 
-                        default:
-                            yield break;
+                            default:
+                                yield break;
+                        }
                     }
                 }
             }
         }
-    }
 
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 }

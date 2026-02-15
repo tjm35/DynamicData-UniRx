@@ -2,44 +2,47 @@
 // Roland Pheasant licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.Reactive.Disposables;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-[DebuggerDisplay("AnonymousObservableList<{typeof(T).Name}> ({Count} Items)")]
-internal sealed class AnonymousObservableList<T> : IObservableList<T>
-    where T : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly ISourceList<T> _sourceList;
-    private readonly IDisposable _cleanUp;
-
-    public AnonymousObservableList(IObservable<IChangeSet<T>> source)
+    [DebuggerDisplay("AnonymousObservableList<{typeof(T).Name}> ({Count} Items)")]
+    internal sealed class AnonymousObservableList<T> : IObservableList<T>
+        where T : notnull
     {
-        if (source is null)
+        private readonly ISourceList<T> _sourceList;
+        private readonly IDisposable _cleanUp;
+
+        public AnonymousObservableList(IObservable<IChangeSet<T>> source)
         {
-            throw new ArgumentNullException(nameof(source));
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            _sourceList = new SourceList<T>(source);
+            _cleanUp = _sourceList;
         }
 
-        _sourceList = new SourceList<T>(source);
-        _cleanUp = _sourceList;
+        public AnonymousObservableList(ISourceList<T> sourceList)
+        {
+            _sourceList = sourceList ?? throw new ArgumentNullException(nameof(sourceList));
+            _cleanUp = Disposable.Empty;
+        }
+
+        public int Count => _sourceList.Count;
+
+        public IObservable<int> CountChanged => _sourceList.CountChanged;
+
+        public IEnumerable<T> Items => _sourceList.Items;
+
+        public IObservable<IChangeSet<T>> Connect(Func<T, bool>? predicate = null) => _sourceList.Connect(predicate);
+
+        public IObservable<IChangeSet<T>> Preview(Func<T, bool>? predicate = null) => _sourceList.Preview(predicate);
+
+        public void Dispose() => _cleanUp.Dispose();
     }
-
-    public AnonymousObservableList(ISourceList<T> sourceList)
-    {
-        _sourceList = sourceList ?? throw new ArgumentNullException(nameof(sourceList));
-        _cleanUp = Disposable.Empty;
-    }
-
-    public int Count => _sourceList.Count;
-
-    public IObservable<int> CountChanged => _sourceList.CountChanged;
-
-    public IEnumerable<T> Items => _sourceList.Items;
-
-    public IObservable<IChangeSet<T>> Connect(Func<T, bool>? predicate = null) => _sourceList.Connect(predicate);
-
-    public IObservable<IChangeSet<T>> Preview(Func<T, bool>? predicate = null) => _sourceList.Preview(predicate);
-
-    public void Dispose() => _cleanUp.Dispose();
 }

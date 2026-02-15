@@ -3,24 +3,24 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Reactive.Linq;
-
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.Cache.Internal;
-
-internal sealed class ObservableWithValue<TObject, TValue>
-    where TValue : notnull
+namespace DynamicData.Cache.Internal
 {
-    public ObservableWithValue(TObject item, IObservable<TValue> source)
+    internal sealed class ObservableWithValue<TObject, TValue>
+        where TValue : notnull
     {
-        Item = item;
-        Observable = source.Do(value => LatestValue = value);
+        public ObservableWithValue(TObject item, IObservable<TValue> source)
+        {
+            Item = item;
+            Observable = source.Do(value => LatestValue = value);
+        }
+
+        public TObject Item { get; }
+
+        public Optional<TValue> LatestValue { get; private set; } = Optional<TValue>.None;
+
+        public IObservable<TValue> Observable { get; }
     }
-
-    public TObject Item { get; }
-
-    public Optional<TValue> LatestValue { get; private set; } = Optional<TValue>.None;
-
-    public IObservable<TValue> Observable { get; }
 }

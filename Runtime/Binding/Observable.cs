@@ -3,15 +3,16 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Reactive.Linq;
+using UniRx;
 
-namespace DynamicData.Binding;
-
-internal static class Observable<T>
+namespace DynamicData.Binding
 {
-    public static IObservable<T?> Default { get; } = Observable.Return<T?>(default);
+    internal static class Observable<T>
+    {
+        public static IObservable<T?> Default { get; } = Observable.Return<T?>(default);
 
-    public static IObservable<T> Empty { get; } = Observable.Empty<T>();
+        public static IObservable<T> Empty { get; } = Observable.Empty<T>();
 
-    public static IObservable<T> Never { get; } = Observable.Never<T>();
+        public static IObservable<T> Never { get; } = Observable.Never<T>();
+    }
 }

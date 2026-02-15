@@ -3,42 +3,42 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-internal sealed class Switch<T>
-    where T : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly IObservable<IObservable<IChangeSet<T>>> _sources;
-
-    public Switch(IObservable<IObservable<IChangeSet<T>>> sources)
+    internal sealed class Switch<T>
+        where T : notnull
     {
-        _sources = sources ?? throw new ArgumentNullException(nameof(sources));
-    }
+        private readonly IObservable<IObservable<IChangeSet<T>>> _sources;
 
-    public IObservable<IChangeSet<T>> Run()
-    {
-        return Observable.Create<IChangeSet<T>>(
-            observer =>
-            {
-                var locker = new object();
+        public Switch(IObservable<IObservable<IChangeSet<T>>> sources)
+        {
+            _sources = sources ?? throw new ArgumentNullException(nameof(sources));
+        }
 
-                var destination = new SourceList<T>();
+        public IObservable<IChangeSet<T>> Run()
+        {
+            return Observable.Create<IChangeSet<T>>(
+                observer =>
+                {
+                    var locker = new object();
 
-                var populator = Observable.Switch(
-                    _sources.Do(
-                        _ =>
-                        {
-                            lock (locker)
+                    var destination = new SourceList<T>();
+
+                    var populator = Observable.Switch(
+                        _sources.Do(
+                            _ =>
                             {
-                                destination.Clear();
-                            }
-                        })).Synchronize(locker).PopulateInto(destination);
+                                lock (locker)
+                                {
+                                    destination.Clear();
+                                }
+                            })).Synchronize(locker).PopulateInto(destination);
 
-                var publisher = destination.Connect().SubscribeSafe(observer);
-                return new CompositeDisposable(destination, populator, publisher);
-            });
+                    var publisher = destination.Connect().SubscribeSafe(observer);
+                    return new CompositeDisposable(destination, populator, publisher);
+                });
+        }
     }
 }

@@ -6,35 +6,35 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace DynamicData.List.Linq;
-
-internal class AddKeyEnumerator<TObject, TKey> : IEnumerable<Change<TObject, TKey>>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData.List.Linq
 {
-    private readonly Func<TObject, TKey> _keySelector;
-
-    private readonly IChangeSet<TObject> _source;
-
-    public AddKeyEnumerator(IChangeSet<TObject> source, Func<TObject, TKey> keySelector)
+    internal class AddKeyEnumerator<TObject, TKey> : IEnumerable<Change<TObject, TKey>>
+        where TObject : notnull
+        where TKey : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _keySelector = keySelector ?? throw new ArgumentNullException(nameof(keySelector));
-    }
+        private readonly Func<TObject, TKey> _keySelector;
 
-    /// <summary>
-    /// Returns an enumerator that iterates through the collection.
-    /// </summary>
-    /// <returns>
-    /// A <see cref="IEnumerator{T}" /> that can be used to iterate through the collection.
-    /// </returns>
-    public IEnumerator<Change<TObject, TKey>> GetEnumerator()
-    {
-        foreach (var change in _source)
+        private readonly IChangeSet<TObject> _source;
+
+        public AddKeyEnumerator(IChangeSet<TObject> source, Func<TObject, TKey> keySelector)
         {
-            switch (change.Reason)
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _keySelector = keySelector ?? throw new ArgumentNullException(nameof(keySelector));
+        }
+
+        /// <summary>
+        /// Returns an enumerator that iterates through the collection.
+        /// </summary>
+        /// <returns>
+        /// A <see cref="IEnumerator{T}" /> that can be used to iterate through the collection.
+        /// </returns>
+        public IEnumerator<Change<TObject, TKey>> GetEnumerator()
+        {
+            foreach (var change in _source)
             {
-                case ListChangeReason.Add:
+                switch (change.Reason)
+                {
+                    case ListChangeReason.Add:
                     {
                         var item = change.Item.Current;
                         var key = _keySelector(item);
@@ -43,7 +43,7 @@ internal class AddKeyEnumerator<TObject, TKey> : IEnumerable<Change<TObject, TKe
                         break;
                     }
 
-                case ListChangeReason.AddRange:
+                    case ListChangeReason.AddRange:
                     {
                         foreach (var item in change.Range)
                         {
@@ -54,7 +54,7 @@ internal class AddKeyEnumerator<TObject, TKey> : IEnumerable<Change<TObject, TKe
                         break;
                     }
 
-                case ListChangeReason.Replace:
+                    case ListChangeReason.Replace:
                     {
                         // replace is a remove and add, if and only if, the keys do not match
                         var previous = change.Item.Previous.Value;
@@ -77,7 +77,7 @@ internal class AddKeyEnumerator<TObject, TKey> : IEnumerable<Change<TObject, TKe
                         break;
                     }
 
-                case ListChangeReason.Remove:
+                    case ListChangeReason.Remove:
                     {
                         var item = change.Item.Current;
                         var key = _keySelector(item);
@@ -86,8 +86,8 @@ internal class AddKeyEnumerator<TObject, TKey> : IEnumerable<Change<TObject, TKe
                         break;
                     }
 
-                case ListChangeReason.Clear:
-                case ListChangeReason.RemoveRange:
+                    case ListChangeReason.Clear:
+                    case ListChangeReason.RemoveRange:
                     {
                         foreach (var item in change.Range)
                         {
@@ -98,21 +98,22 @@ internal class AddKeyEnumerator<TObject, TKey> : IEnumerable<Change<TObject, TKe
                         break;
                     }
 
-                case ListChangeReason.Moved:
+                    case ListChangeReason.Moved:
                     {
                         var key = _keySelector(change.Item.Current);
                         yield return new Change<TObject, TKey>(ChangeReason.Moved, key, change.Item.Current, change.Item.Previous, change.Item.CurrentIndex, change.Item.PreviousIndex);
                         break;
                     }
 
-                default:
-                    throw new IndexOutOfRangeException("The changes are not of a supported type.");
+                    default:
+                        throw new IndexOutOfRangeException("The changes are not of a supported type.");
+                }
             }
         }
-    }
 
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 }

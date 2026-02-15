@@ -3,49 +3,48 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Reactive.Linq;
-
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.Cache.Internal;
-
-internal sealed class Transform<TDestination, TSource, TKey>
-    where TDestination : notnull
-    where TSource : notnull
-    where TKey : notnull
+namespace DynamicData.Cache.Internal
 {
-    private readonly Action<Error<TSource, TKey>>? _exceptionCallback;
-
-    private readonly IObservable<IChangeSet<TSource, TKey>> _source;
-
-    private readonly Func<TSource, Optional<TSource>, TKey, TDestination> _transformFactory;
-
-    private readonly bool _transformOnRefresh;
-
-    public Transform(IObservable<IChangeSet<TSource, TKey>> source, Func<TSource, Optional<TSource>, TKey, TDestination> transformFactory, Action<Error<TSource, TKey>>? exceptionCallback = null, bool transformOnRefresh = false)
+    internal sealed class Transform<TDestination, TSource, TKey>
+        where TDestination : notnull
+        where TSource : notnull
+        where TKey : notnull
     {
-        _source = source;
-        _exceptionCallback = exceptionCallback;
-        _transformOnRefresh = transformOnRefresh;
-        _transformFactory = transformFactory;
-    }
+        private readonly Action<Error<TSource, TKey>>? _exceptionCallback;
 
-    public IObservable<IChangeSet<TDestination, TKey>> Run() => Observable.Defer(RunImpl);
+        private readonly IObservable<IChangeSet<TSource, TKey>> _source;
 
-    private IObservable<IChangeSet<TDestination, TKey>> RunImpl()
-    {
-        return _source.Scan(
-                (ChangeAwareCache<TDestination, TKey>?)null,
-                (cache, changes) =>
-                {
-                    cache ??= new ChangeAwareCache<TDestination, TKey>(changes.Count);
+        private readonly Func<TSource, Optional<TSource>, TKey, TDestination> _transformFactory;
 
-                    foreach (var change in changes.ToConcreteType())
+        private readonly bool _transformOnRefresh;
+
+        public Transform(IObservable<IChangeSet<TSource, TKey>> source, Func<TSource, Optional<TSource>, TKey, TDestination> transformFactory, Action<Error<TSource, TKey>>? exceptionCallback = null, bool transformOnRefresh = false)
+        {
+            _source = source;
+            _exceptionCallback = exceptionCallback;
+            _transformOnRefresh = transformOnRefresh;
+            _transformFactory = transformFactory;
+        }
+
+        public IObservable<IChangeSet<TDestination, TKey>> Run() => Observable.Defer(RunImpl);
+
+        private IObservable<IChangeSet<TDestination, TKey>> RunImpl()
+        {
+            return _source.Scan(
+                    (ChangeAwareCache<TDestination, TKey>?)null,
+                    (cache, changes) =>
                     {
-                        switch (change.Reason)
+                        cache ??= new ChangeAwareCache<TDestination, TKey>(changes.Count);
+
+                        foreach (var change in changes.ToConcreteType())
                         {
-                            case ChangeReason.Add:
-                            case ChangeReason.Update:
+                            switch (change.Reason)
+                            {
+                                case ChangeReason.Add:
+                                case ChangeReason.Update:
                                 {
                                     TDestination transformed;
                                     if (_exceptionCallback is not null)
@@ -67,13 +66,13 @@ internal sealed class Transform<TDestination, TSource, TKey>
                                     }
                                 }
 
-                                break;
+                                    break;
 
-                            case ChangeReason.Remove:
-                                cache.Remove(change.Key);
-                                break;
+                                case ChangeReason.Remove:
+                                    cache.Remove(change.Key);
+                                    break;
 
-                            case ChangeReason.Refresh:
+                                case ChangeReason.Refresh:
                                 {
                                     if (_transformOnRefresh)
                                     {
@@ -86,17 +85,18 @@ internal sealed class Transform<TDestination, TSource, TKey>
                                     }
                                 }
 
-                                break;
+                                    break;
 
-                            case ChangeReason.Moved:
-                                // Do nothing !
-                                break;
+                                case ChangeReason.Moved:
+                                    // Do nothing !
+                                    break;
+                            }
                         }
-                    }
 
-                    return cache;
-                })
-            .Where(x => x is not null)
-            .Select(cache => cache!.CaptureChanges());
+                        return cache;
+                    })
+                .Where(x => x is not null)
+                .Select(cache => cache!.CaptureChanges());
+        }
     }
 }

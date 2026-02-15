@@ -3,108 +3,105 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.Experimental;
-
-internal sealed class Watcher<TObject, TKey> : IWatcher<TObject, TKey>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData.Experimental
 {
-    private readonly IDisposable _disposer;
-
-    private readonly object _locker = new();
-
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Disposed with _cleanUp")]
-    private readonly IObservableCache<TObject, TKey> _source;
-
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Disposed with _cleanUp")]
-    private readonly IntermediateCache<SubjectWithRefCount<Change<TObject, TKey>>, TKey> _subscribers = new();
-
-    public Watcher(IObservable<IChangeSet<TObject, TKey>> source, IScheduler scheduler)
+    internal sealed class Watcher<TObject, TKey> : IWatcher<TObject, TKey>
+        where TObject : notnull
+        where TKey : notnull
     {
-        _source = source.AsObservableCache();
+        private readonly IDisposable _disposer;
 
-        var onCompletePublisher = _subscribers.Connect().Synchronize(_locker).ObserveOn(scheduler).SubscribeMany((t, _) => Disposable.Create(t.OnCompleted)).Subscribe();
+        private readonly object _locker = new();
 
-        var sourceSubscriber = source.Synchronize(_locker).Subscribe(
-            updates => updates.ForEach(
-                update =>
-                {
-                    var subscriber = _subscribers.Lookup(update.Key);
-                    if (subscriber.HasValue)
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Disposed with _cleanUp")]
+        private readonly IObservableCache<TObject, TKey> _source;
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Disposed with _cleanUp")]
+        private readonly IntermediateCache<SubjectWithRefCount<Change<TObject, TKey>>, TKey> _subscribers = new();
+
+        public Watcher(IObservable<IChangeSet<TObject, TKey>> source, IScheduler scheduler)
+        {
+            _source = source.AsObservableCache();
+
+            var onCompletePublisher = _subscribers.Connect().Synchronize(_locker).ObserveOn(scheduler).SubscribeMany((t, _) => Disposable.Create(t.OnCompleted)).Subscribe();
+
+            var sourceSubscriber = source.Synchronize(_locker).Subscribe(
+                updates => updates.ForEach(
+                    update =>
                     {
-                        scheduler.Schedule(() => subscriber.Value.OnNext(update));
-                    }
-                }));
-
-        _disposer = Disposable.Create(
-            () =>
-            {
-                onCompletePublisher.Dispose();
-                sourceSubscriber.Dispose();
-
-                _source.Dispose();
-                _subscribers.Dispose();
-            });
-    }
-
-    public void Dispose()
-    {
-        _disposer.Dispose();
-    }
-
-    public IObservable<Change<TObject, TKey>> Watch(TKey key)
-    {
-        return Observable.Create<Change<TObject, TKey>>(
-            observer =>
-            {
-                lock (_locker)
-                {
-                    // Create or find the existing subscribers
-                    var existing = _subscribers.Lookup(key);
-                    SubjectWithRefCount<Change<TObject, TKey>> subject;
-                    if (existing.HasValue)
-                    {
-                        subject = existing.Value;
-                    }
-                    else
-                    {
-                        subject = new SubjectWithRefCount<Change<TObject, TKey>>(new ReplaySubject<Change<TObject, TKey>>(1));
-
-                        var initial = _source.Lookup(key);
-                        if (initial.HasValue)
+                        var subscriber = _subscribers.Lookup(update.Key);
+                        if (subscriber.HasValue)
                         {
-                            var update = new Change<TObject, TKey>(ChangeReason.Add, key, initial.Value);
-                            subject.OnNext(update);
+                            scheduler.Schedule(() => subscriber.Value.OnNext(update));
+                        }
+                    }));
+
+            _disposer = Disposable.Create(
+                () =>
+                {
+                    onCompletePublisher.Dispose();
+                    sourceSubscriber.Dispose();
+
+                    _source.Dispose();
+                    _subscribers.Dispose();
+                });
+        }
+
+        public void Dispose()
+        {
+            _disposer.Dispose();
+        }
+
+        public IObservable<Change<TObject, TKey>> Watch(TKey key)
+        {
+            return Observable.Create<Change<TObject, TKey>>(
+                observer =>
+                {
+                    lock (_locker)
+                    {
+                        // Create or find the existing subscribers
+                        var existing = _subscribers.Lookup(key);
+                        SubjectWithRefCount<Change<TObject, TKey>> subject;
+                        if (existing.HasValue)
+                        {
+                            subject = existing.Value;
+                        }
+                        else
+                        {
+                            subject = new SubjectWithRefCount<Change<TObject, TKey>>(new ReplaySubject<Change<TObject, TKey>>(1));
+
+                            var initial = _source.Lookup(key);
+                            if (initial.HasValue)
+                            {
+                                var update = new Change<TObject, TKey>(ChangeReason.Add, key, initial.Value);
+                                subject.OnNext(update);
+                            }
+
+                            _subscribers.Edit(updater => updater.AddOrUpdate(subject, key));
                         }
 
-                        _subscribers.Edit(updater => updater.AddOrUpdate(subject, key));
-                    }
+                        // set up subscription
+                        var subscriber = subject.SubscribeSafe(observer);
 
-                    // set up subscription
-                    var subscriber = subject.SubscribeSafe(observer);
-
-                    return Disposable.Create(
-                        () =>
-                        {
-                            // lock to ensure no race condition where the same key could be subscribed
-                            // to whilst disposal is taking place
-                            lock (_locker)
+                        return Disposable.Create(
+                            () =>
                             {
-                                subscriber.Dispose();
-                                if (subject.RefCount == 0)
+                                // lock to ensure no race condition where the same key could be subscribed
+                                // to whilst disposal is taking place
+                                lock (_locker)
                                 {
-                                    _subscribers.Remove(key);
+                                    subscriber.Dispose();
+                                    if (subject.RefCount == 0)
+                                    {
+                                        _subscribers.Remove(key);
+                                    }
                                 }
-                            }
-                        });
-                }
-            });
+                            });
+                    }
+                });
+        }
     }
 }

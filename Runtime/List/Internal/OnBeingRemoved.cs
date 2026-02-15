@@ -4,74 +4,73 @@
 
 using System;
 using System.Collections.Generic;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-internal sealed class OnBeingRemoved<T>
-    where T : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly Action<T> _callback;
-    private readonly bool _invokeOnUnsubscribe;
-
-    private readonly IObservable<IChangeSet<T>> _source;
-
-    public OnBeingRemoved(IObservable<IChangeSet<T>> source, Action<T> callback, bool invokeOnUnsubscribe)
+    internal sealed class OnBeingRemoved<T>
+        where T : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _callback = callback ?? throw new ArgumentNullException(nameof(callback));
-        _invokeOnUnsubscribe = invokeOnUnsubscribe;
-    }
+        private readonly Action<T> _callback;
+        private readonly bool _invokeOnUnsubscribe;
 
-    public IObservable<IChangeSet<T>> Run()
-    {
-        return Observable.Create<IChangeSet<T>>(
-            observer =>
-            {
-                var locker = new object();
-                var items = new List<T>();
-                var subscriber = _source.Synchronize(locker).Do(changes => RegisterForRemoval(items, changes), observer.OnError).SubscribeSafe(observer);
+        private readonly IObservable<IChangeSet<T>> _source;
 
-                return Disposable.Create(
-                    () =>
-                    {
-                        subscriber.Dispose();
-
-                        if (_invokeOnUnsubscribe)
-                        {
-                            items.ForEach(t => _callback(t));
-                        }
-                    });
-            });
-    }
-
-    private void RegisterForRemoval(IList<T> items, IChangeSet<T> changes)
-    {
-        foreach (var change in changes)
+        public OnBeingRemoved(IObservable<IChangeSet<T>> source, Action<T> callback, bool invokeOnUnsubscribe)
         {
-            switch (change.Reason)
-            {
-                case ListChangeReason.Replace:
-                    change.Item.Previous.IfHasValue(t => _callback(t));
-                    break;
-
-                case ListChangeReason.Remove:
-                    _callback(change.Item.Current);
-                    break;
-
-                case ListChangeReason.RemoveRange:
-                    change.Range.ForEach(_callback);
-                    break;
-
-                case ListChangeReason.Clear:
-                    items.ForEach(_callback);
-                    break;
-            }
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _callback = callback ?? throw new ArgumentNullException(nameof(callback));
+            _invokeOnUnsubscribe = invokeOnUnsubscribe;
         }
 
-        items.Clone(changes);
+        public IObservable<IChangeSet<T>> Run()
+        {
+            return Observable.Create<IChangeSet<T>>(
+                observer =>
+                {
+                    var locker = new object();
+                    var items = new List<T>();
+                    var subscriber = _source.Synchronize(locker).Do(changes => RegisterForRemoval(items, changes), observer.OnError).SubscribeSafe(observer);
+
+                    return Disposable.Create(
+                        () =>
+                        {
+                            subscriber.Dispose();
+
+                            if (_invokeOnUnsubscribe)
+                            {
+                                items.ForEach(t => _callback(t));
+                            }
+                        });
+                });
+        }
+
+        private void RegisterForRemoval(IList<T> items, IChangeSet<T> changes)
+        {
+            foreach (var change in changes)
+            {
+                switch (change.Reason)
+                {
+                    case ListChangeReason.Replace:
+                        change.Item.Previous.IfHasValue(t => _callback(t));
+                        break;
+
+                    case ListChangeReason.Remove:
+                        _callback(change.Item.Current);
+                        break;
+
+                    case ListChangeReason.RemoveRange:
+                        change.Range.ForEach(_callback);
+                        break;
+
+                    case ListChangeReason.Clear:
+                        items.ForEach(_callback);
+                        break;
+                }
+            }
+
+            items.Clone(changes);
+        }
     }
 }

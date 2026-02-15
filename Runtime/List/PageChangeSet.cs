@@ -9,49 +9,50 @@ using System.Collections.Generic;
 using DynamicData.Operators;
 
 // ReSharper disable once CheckNamespace
-namespace DynamicData;
-
-internal sealed class PageChangeSet<T> : IPageChangeSet<T>
-    where T : notnull
+namespace DynamicData
 {
-    private readonly IChangeSet<T> _virtualChangeSet;
-
-    public PageChangeSet(IChangeSet<T> virtualChangeSet, IPageResponse response)
+    internal sealed class PageChangeSet<T> : IPageChangeSet<T>
+        where T : notnull
     {
-        _virtualChangeSet = virtualChangeSet ?? throw new ArgumentNullException(nameof(virtualChangeSet));
+        private readonly IChangeSet<T> _virtualChangeSet;
 
-        Response = response ?? throw new ArgumentNullException(nameof(response));
-    }
+        public PageChangeSet(IChangeSet<T> virtualChangeSet, IPageResponse response)
+        {
+            _virtualChangeSet = virtualChangeSet ?? throw new ArgumentNullException(nameof(virtualChangeSet));
 
-    public int Count => _virtualChangeSet.Count;
+            Response = response ?? throw new ArgumentNullException(nameof(response));
+        }
 
-    public int Refreshes => _virtualChangeSet.Refreshes;
+        public int Count => _virtualChangeSet.Count;
 
-    public IPageResponse Response { get; }
+        public int Refreshes => _virtualChangeSet.Refreshes;
 
-    int IChangeSet.Adds => _virtualChangeSet.Adds;
+        public IPageResponse Response { get; }
 
-    int IChangeSet.Capacity
-    {
-        get => _virtualChangeSet.Capacity;
-        set => _virtualChangeSet.Capacity = value;
-    }
+        int IChangeSet.Adds => _virtualChangeSet.Adds;
 
-    int IChangeSet.Moves => _virtualChangeSet.Moves;
+        int IChangeSet.Capacity
+        {
+            get => _virtualChangeSet.Capacity;
+            set => _virtualChangeSet.Capacity = value;
+        }
 
-    int IChangeSet.Removes => _virtualChangeSet.Removes;
+        int IChangeSet.Moves => _virtualChangeSet.Moves;
 
-    int IChangeSet<T>.Replaced => _virtualChangeSet.Replaced;
+        int IChangeSet.Removes => _virtualChangeSet.Removes;
 
-    int IChangeSet<T>.TotalChanges => _virtualChangeSet.TotalChanges;
+        int IChangeSet<T>.Replaced => _virtualChangeSet.Replaced;
 
-    public IEnumerator<Change<T>> GetEnumerator()
-    {
-        return _virtualChangeSet.GetEnumerator();
-    }
+        int IChangeSet<T>.TotalChanges => _virtualChangeSet.TotalChanges;
 
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
+        public IEnumerator<Change<T>> GetEnumerator()
+        {
+            return _virtualChangeSet.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 }

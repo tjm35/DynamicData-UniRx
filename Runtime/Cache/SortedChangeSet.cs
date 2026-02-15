@@ -8,44 +8,45 @@ using System.Linq;
 using DynamicData.Cache.Internal;
 
 // ReSharper disable once CheckNamespace
-namespace DynamicData;
-
-internal class SortedChangeSet<TObject, TKey> : ChangeSet<TObject, TKey>, ISortedChangeSet<TObject, TKey>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData
 {
-    public static readonly new ISortedChangeSet<TObject, TKey> Empty = new SortedChangeSet<TObject, TKey>();
-
-    public SortedChangeSet(IKeyValueCollection<TObject, TKey> sortedItems, IEnumerable<Change<TObject, TKey>> updates)
-        : base(updates)
+    internal class SortedChangeSet<TObject, TKey> : ChangeSet<TObject, TKey>, ISortedChangeSet<TObject, TKey>
+        where TObject : notnull
+        where TKey : notnull
     {
-        SortedItems = sortedItems;
-    }
+        public static readonly new ISortedChangeSet<TObject, TKey> Empty = new SortedChangeSet<TObject, TKey>();
 
-    private SortedChangeSet()
-    {
-        SortedItems = new KeyValueCollection<TObject, TKey>();
-    }
+        public SortedChangeSet(IKeyValueCollection<TObject, TKey> sortedItems, IEnumerable<Change<TObject, TKey>> updates)
+            : base(updates)
+        {
+            SortedItems = sortedItems;
+        }
 
-    public IKeyValueCollection<TObject, TKey> SortedItems { get; }
+        private SortedChangeSet()
+        {
+            SortedItems = new KeyValueCollection<TObject, TKey>();
+        }
 
-    public bool Equals(SortedChangeSet<TObject, TKey> other)
-    {
-        return SortedItems.SequenceEqual(other.SortedItems);
-    }
+        public IKeyValueCollection<TObject, TKey> SortedItems { get; }
 
-    public override bool Equals(object? obj)
-    {
-        return obj is SortedChangeSet<TObject, TKey> value && Equals(value);
-    }
+        public bool Equals(SortedChangeSet<TObject, TKey> other)
+        {
+            return SortedItems.SequenceEqual(other.SortedItems);
+        }
 
-    public override int GetHashCode()
-    {
-        return SortedItems.GetHashCode();
-    }
+        public override bool Equals(object? obj)
+        {
+            return obj is SortedChangeSet<TObject, TKey> value && Equals(value);
+        }
 
-    public override string ToString()
-    {
-        return $"SortedChangeSet. Count= {SortedItems.Count}. Updates = {Count}";
+        public override int GetHashCode()
+        {
+            return SortedItems.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return $"SortedChangeSet. Count= {SortedItems.Count}. Updates = {Count}";
+        }
     }
 }

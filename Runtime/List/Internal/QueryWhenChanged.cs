@@ -4,33 +4,33 @@
 
 using System;
 using System.Collections.Generic;
-using System.Reactive.Linq;
-
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.List.Internal;
-
-internal class QueryWhenChanged<T>
-    where T : notnull
+namespace DynamicData.List.Internal
 {
-    private readonly IObservable<IChangeSet<T>> _source;
-
-    public QueryWhenChanged(IObservable<IChangeSet<T>> source)
+    internal class QueryWhenChanged<T>
+        where T : notnull
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-    }
+        private readonly IObservable<IChangeSet<T>> _source;
 
-    public IObservable<IReadOnlyCollection<T>> Run()
-    {
-        return Observable.Create<IReadOnlyCollection<T>>(observer =>
+        public QueryWhenChanged(IObservable<IChangeSet<T>> source)
         {
-            var list = new List<T>();
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+        }
 
-            return _source.Subscribe(changes =>
+        public IObservable<IReadOnlyCollection<T>> Run()
+        {
+            return Observable.Create<IReadOnlyCollection<T>>(observer =>
             {
-                list.Clone(changes);
-                observer.OnNext(new ReadOnlyCollectionLight<T>(list));
+                var list = new List<T>();
+
+                return _source.Subscribe(changes =>
+                {
+                    list.Clone(changes);
+                    observer.OnNext(new ReadOnlyCollectionLight<T>(list));
+                });
             });
-        });
+        }
     }
 }

@@ -10,222 +10,223 @@ using DynamicData.Cache;
 using DynamicData.Kernel;
 
 // ReSharper disable once CheckNamespace
-namespace DynamicData;
-
-/// <summary>
-/// A cache which captures all changes which are made to it. These changes are recorded until CaptureChanges() at which point thw changes are cleared.
-/// Used for creating custom operators.
-/// </summary>
-/// <seealso cref="ICache{TObject, TKey}" />
-/// <typeparam name="TObject">The value of the cache.</typeparam>
-/// <typeparam name="TKey">The key of the cache.</typeparam>
-public sealed class ChangeAwareCache<TObject, TKey> : ICache<TObject, TKey>
-    where TObject : notnull
-    where TKey : notnull
+namespace DynamicData
 {
-    private readonly Dictionary<TKey, TObject> _data;
-    private ChangeSet<TObject, TKey> _changes;
-
     /// <summary>
-    /// Initializes a new instance of the <see cref="ChangeAwareCache{TObject, TKey}"/> class.
+    /// A cache which captures all changes which are made to it. These changes are recorded until CaptureChanges() at which point thw changes are cleared.
+    /// Used for creating custom operators.
     /// </summary>
-    public ChangeAwareCache()
+    /// <seealso cref="ICache{TObject, TKey}" />
+    /// <typeparam name="TObject">The value of the cache.</typeparam>
+    /// <typeparam name="TKey">The key of the cache.</typeparam>
+    public sealed class ChangeAwareCache<TObject, TKey> : ICache<TObject, TKey>
+        where TObject : notnull
+        where TKey : notnull
     {
-        _changes = new ChangeSet<TObject, TKey>();
-        _data = new Dictionary<TKey, TObject>();
-    }
+        private readonly Dictionary<TKey, TObject> _data;
+        private ChangeSet<TObject, TKey> _changes;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ChangeAwareCache{TObject, TKey}"/> class.
-    /// </summary>
-    /// <param name="capacity">The capacity of the initial items.</param>
-    public ChangeAwareCache(int capacity)
-    {
-        _changes = new ChangeSet<TObject, TKey>(capacity);
-        _data = new Dictionary<TKey, TObject>(capacity);
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ChangeAwareCache{TObject, TKey}"/> class.
-    /// </summary>
-    /// <param name="data">Data to populate the cache with.</param>
-    public ChangeAwareCache(Dictionary<TKey, TObject> data)
-    {
-        _data = data ?? throw new ArgumentNullException(nameof(data));
-        _changes = new ChangeSet<TObject, TKey>();
-    }
-
-    /// <inheritdoc />
-    public int Count => _data.Count;
-
-    /// <inheritdoc />
-    public IEnumerable<TObject> Items => _data.Values;
-
-    /// <inheritdoc />
-    public IEnumerable<TKey> Keys => _data.Keys;
-
-    /// <inheritdoc />
-    public IEnumerable<KeyValuePair<TKey, TObject>> KeyValues => _data;
-
-    /// <summary>
-    /// Adds the item to the cache without checking whether there is an existing value in the cache.
-    /// </summary>
-    /// <param name="item">The item to add.</param>
-    /// <param name="key">The key to add.</param>
-    public void Add(TObject item, TKey key)
-    {
-        _changes.Add(new Change<TObject, TKey>(ChangeReason.Add, key, item));
-        _data.Add(key, item);
-    }
-
-    /// <inheritdoc />
-    public void AddOrUpdate(TObject item, TKey key)
-    {
-        _changes.Add(_data.TryGetValue(key, out var existingItem) ? new Change<TObject, TKey>(ChangeReason.Update, key, item, existingItem) : new Change<TObject, TKey>(ChangeReason.Add, key, item));
-
-        _data[key] = item;
-    }
-
-    /// <summary>
-    /// Create a change set from recorded changes and clears known changes.
-    /// </summary>
-    /// <returns>A change set with the key/value changes.</returns>
-    public ChangeSet<TObject, TKey> CaptureChanges()
-    {
-        if (_changes.Count == 0)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ChangeAwareCache{TObject, TKey}"/> class.
+        /// </summary>
+        public ChangeAwareCache()
         {
-            return ChangeSet<TObject, TKey>.Empty;
+            _changes = new ChangeSet<TObject, TKey>();
+            _data = new Dictionary<TKey, TObject>();
         }
 
-        var copy = _changes;
-        _changes = new ChangeSet<TObject, TKey>();
-        return copy;
-    }
-
-    /// <inheritdoc />
-    public void Clear()
-    {
-        var toRemove = _data.Select(kvp => new Change<TObject, TKey>(ChangeReason.Remove, kvp.Key, kvp.Value));
-        _changes.AddRange(toRemove);
-        _data.Clear();
-    }
-
-    /// <inheritdoc />
-    public void Clone(IChangeSet<TObject, TKey> changes)
-    {
-        if (changes is null)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ChangeAwareCache{TObject, TKey}"/> class.
+        /// </summary>
+        /// <param name="capacity">The capacity of the initial items.</param>
+        public ChangeAwareCache(int capacity)
         {
-            throw new ArgumentNullException(nameof(changes));
+            _changes = new ChangeSet<TObject, TKey>(capacity);
+            _data = new Dictionary<TKey, TObject>(capacity);
         }
 
-        foreach (var change in changes.ToConcreteType())
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ChangeAwareCache{TObject, TKey}"/> class.
+        /// </summary>
+        /// <param name="data">Data to populate the cache with.</param>
+        public ChangeAwareCache(Dictionary<TKey, TObject> data)
         {
-            switch (change.Reason)
+            _data = data ?? throw new ArgumentNullException(nameof(data));
+            _changes = new ChangeSet<TObject, TKey>();
+        }
+
+        /// <inheritdoc />
+        public int Count => _data.Count;
+
+        /// <inheritdoc />
+        public IEnumerable<TObject> Items => _data.Values;
+
+        /// <inheritdoc />
+        public IEnumerable<TKey> Keys => _data.Keys;
+
+        /// <inheritdoc />
+        public IEnumerable<KeyValuePair<TKey, TObject>> KeyValues => _data;
+
+        /// <summary>
+        /// Adds the item to the cache without checking whether there is an existing value in the cache.
+        /// </summary>
+        /// <param name="item">The item to add.</param>
+        /// <param name="key">The key to add.</param>
+        public void Add(TObject item, TKey key)
+        {
+            _changes.Add(new Change<TObject, TKey>(ChangeReason.Add, key, item));
+            _data.Add(key, item);
+        }
+
+        /// <inheritdoc />
+        public void AddOrUpdate(TObject item, TKey key)
+        {
+            _changes.Add(_data.TryGetValue(key, out var existingItem) ? new Change<TObject, TKey>(ChangeReason.Update, key, item, existingItem) : new Change<TObject, TKey>(ChangeReason.Add, key, item));
+
+            _data[key] = item;
+        }
+
+        /// <summary>
+        /// Create a change set from recorded changes and clears known changes.
+        /// </summary>
+        /// <returns>A change set with the key/value changes.</returns>
+        public ChangeSet<TObject, TKey> CaptureChanges()
+        {
+            if (_changes.Count == 0)
             {
-                case ChangeReason.Add:
-                case ChangeReason.Update:
-                    AddOrUpdate(change.Current, change.Key);
-                    break;
+                return ChangeSet<TObject, TKey>.Empty;
+            }
 
-                case ChangeReason.Remove:
-                    Remove(change.Key);
-                    break;
+            var copy = _changes;
+            _changes = new ChangeSet<TObject, TKey>();
+            return copy;
+        }
 
-                case ChangeReason.Refresh:
-                    Refresh(change.Key);
-                    break;
-                case ChangeReason.Moved:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(changes));
+        /// <inheritdoc />
+        public void Clear()
+        {
+            var toRemove = _data.Select(kvp => new Change<TObject, TKey>(ChangeReason.Remove, kvp.Key, kvp.Value));
+            _changes.AddRange(toRemove);
+            _data.Clear();
+        }
+
+        /// <inheritdoc />
+        public void Clone(IChangeSet<TObject, TKey> changes)
+        {
+            if (changes is null)
+            {
+                throw new ArgumentNullException(nameof(changes));
+            }
+
+            foreach (var change in changes.ToConcreteType())
+            {
+                switch (change.Reason)
+                {
+                    case ChangeReason.Add:
+                    case ChangeReason.Update:
+                        AddOrUpdate(change.Current, change.Key);
+                        break;
+
+                    case ChangeReason.Remove:
+                        Remove(change.Key);
+                        break;
+
+                    case ChangeReason.Refresh:
+                        Refresh(change.Key);
+                        break;
+                    case ChangeReason.Moved:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(changes));
+                }
             }
         }
-    }
 
-    /// <inheritdoc />
-    public Optional<TObject> Lookup(TKey key) => _data.Lookup(key);
+        /// <inheritdoc />
+        public Optional<TObject> Lookup(TKey key) => _data.Lookup(key);
 
-    /// <summary>
-    /// Raises an evaluate change for the specified keys.
-    /// </summary>
-    /// <param name="keys">The keys to refresh.</param>
-    public void Refresh(IEnumerable<TKey> keys)
-    {
-        if (keys is null)
+        /// <summary>
+        /// Raises an evaluate change for the specified keys.
+        /// </summary>
+        /// <param name="keys">The keys to refresh.</param>
+        public void Refresh(IEnumerable<TKey> keys)
         {
-            throw new ArgumentNullException(nameof(keys));
-        }
-
-        if (keys is IList<TKey> list)
-        {
-            foreach (var key in EnumerableIList.Create(list))
+            if (keys is null)
             {
-                Refresh(key);
+                throw new ArgumentNullException(nameof(keys));
+            }
+
+            if (keys is IList<TKey> list)
+            {
+                foreach (var key in EnumerableIList.Create(list))
+                {
+                    Refresh(key);
+                }
+            }
+            else
+            {
+                foreach (var key in keys)
+                {
+                    Refresh(key);
+                }
             }
         }
-        else
+
+        /// <summary>
+        /// Raises an evaluate change for all items in the cache.
+        /// </summary>
+        public void Refresh()
         {
-            foreach (var key in keys)
+            _changes.AddRange(_data.Select(t => new Change<TObject, TKey>(ChangeReason.Refresh, t.Key, t.Value)));
+        }
+
+        /// <summary>
+        /// Raises an evaluate change for the specified key.
+        /// </summary>
+        /// <param name="key">The key.</param>
+        public void Refresh(TKey key)
+        {
+            if (_data.TryGetValue(key, out var existingItem))
             {
-                Refresh(key);
+                _changes.Add(new Change<TObject, TKey>(ChangeReason.Refresh, key, existingItem));
             }
         }
-    }
 
-    /// <summary>
-    /// Raises an evaluate change for all items in the cache.
-    /// </summary>
-    public void Refresh()
-    {
-        _changes.AddRange(_data.Select(t => new Change<TObject, TKey>(ChangeReason.Refresh, t.Key, t.Value)));
-    }
-
-    /// <summary>
-    /// Raises an evaluate change for the specified key.
-    /// </summary>
-    /// <param name="key">The key.</param>
-    public void Refresh(TKey key)
-    {
-        if (_data.TryGetValue(key, out var existingItem))
+        /// <summary>
+        /// Removes the item matching the specified keys.
+        /// </summary>
+        /// <param name="keys">The keys.</param>
+        public void Remove(IEnumerable<TKey> keys)
         {
-            _changes.Add(new Change<TObject, TKey>(ChangeReason.Refresh, key, existingItem));
-        }
-    }
-
-    /// <summary>
-    /// Removes the item matching the specified keys.
-    /// </summary>
-    /// <param name="keys">The keys.</param>
-    public void Remove(IEnumerable<TKey> keys)
-    {
-        if (keys is null)
-        {
-            throw new ArgumentNullException(nameof(keys));
-        }
-
-        if (keys is IList<TKey> list)
-        {
-            foreach (var item in EnumerableIList.Create(list))
+            if (keys is null)
             {
-                Remove(item);
+                throw new ArgumentNullException(nameof(keys));
+            }
+
+            if (keys is IList<TKey> list)
+            {
+                foreach (var item in EnumerableIList.Create(list))
+                {
+                    Remove(item);
+                }
+            }
+            else
+            {
+                foreach (var key in keys)
+                {
+                    Remove(key);
+                }
             }
         }
-        else
-        {
-            foreach (var key in keys)
-            {
-                Remove(key);
-            }
-        }
-    }
 
-    /// <inheritdoc />
-    public void Remove(TKey key)
-    {
-        if (_data.TryGetValue(key, out var existingItem))
+        /// <inheritdoc />
+        public void Remove(TKey key)
         {
-            _changes.Add(new Change<TObject, TKey>(ChangeReason.Remove, key, existingItem));
-            _data.Remove(key);
+            if (_data.TryGetValue(key, out var existingItem))
+            {
+                _changes.Add(new Change<TObject, TKey>(ChangeReason.Remove, key, existingItem));
+                _data.Remove(key);
+            }
         }
     }
 }

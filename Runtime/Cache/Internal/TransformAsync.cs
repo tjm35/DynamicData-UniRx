@@ -2,63 +2,49 @@
 // Roland Pheasant licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Reactive.Linq;
-
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using DynamicData.Kernel;
+using UniRx;
 
-namespace DynamicData.Cache.Internal;
-
-internal class TransformAsync<TDestination, TSource, TKey>
-    where TDestination : notnull
-    where TSource : notnull
-    where TKey : notnull
+namespace DynamicData.Cache.Internal
 {
-    private readonly Action<Error<TSource, TKey>>? _exceptionCallback;
-
-    private readonly IObservable<Func<TSource, TKey, bool>>? _forceTransform;
-
-    private readonly IObservable<IChangeSet<TSource, TKey>> _source;
-
-    private readonly Func<TSource, Optional<TSource>, TKey, Task<TDestination>> _transformFactory;
-
-    public TransformAsync(IObservable<IChangeSet<TSource, TKey>> source, Func<TSource, Optional<TSource>, TKey, Task<TDestination>> transformFactory, Action<Error<TSource, TKey>>? exceptionCallback, IObservable<Func<TSource, TKey, bool>>? forceTransform = null)
+    internal class TransformAsync<TDestination, TSource, TKey>
+        where TDestination : notnull
+        where TSource : notnull
+        where TKey : notnull
     {
-        _source = source;
-        _exceptionCallback = exceptionCallback;
-        _transformFactory = transformFactory;
-        _forceTransform = forceTransform;
-    }
+        private readonly Action<Error<TSource, TKey>>? _exceptionCallback;
 
-    public IObservable<IChangeSet<TDestination, TKey>> Run()
-    {
-        return Observable.Create<IChangeSet<TDestination, TKey>>(observer =>
+        private readonly IObservable<Func<TSource, TKey, bool>>? _forceTransform;
+
+        private readonly IObservable<IChangeSet<TSource, TKey>> _source;
+
+        private readonly Func<TSource, Optional<TSource>, TKey, Task<TDestination>> _transformFactory;
+
+        public TransformAsync(IObservable<IChangeSet<TSource, TKey>> source, Func<TSource, Optional<TSource>, TKey, Task<TDestination>> transformFactory, Action<Error<TSource, TKey>>? exceptionCallback, IObservable<Func<TSource, TKey, bool>>? forceTransform = null)
         {
-            var cache = new ChangeAwareCache<TransformedItemContainer, TKey>();
-            var asyncLock = new SemaphoreSlim(1, 1);
+            _source = source;
+            _exceptionCallback = exceptionCallback;
+            _transformFactory = transformFactory;
+            _forceTransform = forceTransform;
+        }
 
-            var transformer = _source.Select(async changes =>
+        public IObservable<IChangeSet<TDestination, TKey>> Run()
+        {
+            return Observable.Create<IChangeSet<TDestination, TKey>>(observer =>
             {
-                try
-                {
-                    await asyncLock.WaitAsync();
-                    return await DoTransform(cache, changes).ConfigureAwait(false);
-                }
-                finally
-                {
-                    asyncLock.Release();
-                }
-            }).Concat();
+                var cache = new ChangeAwareCache<TransformedItemContainer, TKey>();
+                var asyncLock = new SemaphoreSlim(1, 1);
 
-            if (_forceTransform is not null)
-            {
-                var locker = new object();
-                var forced = _forceTransform.Synchronize(locker)
-                .Select(async shouldTransform =>
+                var transformer = _source.Select(async changes =>
                 {
                     try
                     {
                         await asyncLock.WaitAsync();
-                        return await DoTransform(cache, shouldTransform).ConfigureAwait(false);
+                        return await DoTransform(cache, changes).ConfigureAwait(false);
                     }
                     finally
                     {
@@ -66,135 +52,153 @@ internal class TransformAsync<TDestination, TSource, TKey>
                     }
                 }).Concat();
 
-                transformer = transformer.Synchronize(locker).Merge(forced);
-            }
+                if (_forceTransform is not null)
+                {
+                    var locker = new object();
+                    var forced = _forceTransform.Synchronize(locker)
+                        .Select(async shouldTransform =>
+                        {
+                            try
+                            {
+                                await asyncLock.WaitAsync();
+                                return await DoTransform(cache, shouldTransform).ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                asyncLock.Release();
+                            }
+                        }).Concat();
 
-            return transformer.SubscribeSafe(observer);
-        });
-    }
+                    transformer = transformer.Synchronize(locker).Merge(forced);
+                }
 
-    private async Task<IChangeSet<TDestination, TKey>> DoTransform(ChangeAwareCache<TransformedItemContainer, TKey> cache, Func<TSource, TKey, bool> shouldTransform)
-    {
-        var toTransform = cache.KeyValues.Where(kvp => shouldTransform(kvp.Value.Source, kvp.Key)).Select(kvp => new Change<TSource, TKey>(ChangeReason.Update, kvp.Key, kvp.Value.Source, kvp.Value.Source)).ToArray();
-
-        var transformed = await Task.WhenAll(toTransform.Select(Transform)).ConfigureAwait(false);
-
-        return ProcessUpdates(cache, transformed);
-    }
-
-    private async Task<IChangeSet<TDestination, TKey>> DoTransform(ChangeAwareCache<TransformedItemContainer, TKey> cache, IChangeSet<TSource, TKey> changes)
-    {
-        var transformed = await Task.WhenAll(changes.Select(Transform)).ConfigureAwait(false);
-
-        return ProcessUpdates(cache, transformed);
-    }
-
-    private IChangeSet<TDestination, TKey> ProcessUpdates(ChangeAwareCache<TransformedItemContainer, TKey> cache, TransformResult[] transformedItems)
-    {
-        // check for errors and callback if a handler has been specified
-        var errors = transformedItems.Where(t => !t.Success).ToArray();
-        if (errors.Length > 0)
-        {
-            errors.ForEach(t => _exceptionCallback?.Invoke(new Error<TSource, TKey>(t.Error, t.Change.Current, t.Change.Key)));
+                return transformer.SubscribeSafe(observer);
+            });
         }
 
-        foreach (var result in transformedItems.Where(t => t.Success))
+        private async Task<IChangeSet<TDestination, TKey>> DoTransform(ChangeAwareCache<TransformedItemContainer, TKey> cache, Func<TSource, TKey, bool> shouldTransform)
         {
-            TKey key = result.Key;
-            switch (result.Change.Reason)
+            var toTransform = cache.KeyValues.Where(kvp => shouldTransform(kvp.Value.Source, kvp.Key)).Select(kvp => new Change<TSource, TKey>(ChangeReason.Update, kvp.Key, kvp.Value.Source, kvp.Value.Source)).ToArray();
+
+            var transformed = await Task.WhenAll(toTransform.Select(Transform)).ConfigureAwait(false);
+
+            return ProcessUpdates(cache, transformed);
+        }
+
+        private async Task<IChangeSet<TDestination, TKey>> DoTransform(ChangeAwareCache<TransformedItemContainer, TKey> cache, IChangeSet<TSource, TKey> changes)
+        {
+            var transformed = await Task.WhenAll(changes.Select(Transform)).ConfigureAwait(false);
+
+            return ProcessUpdates(cache, transformed);
+        }
+
+        private IChangeSet<TDestination, TKey> ProcessUpdates(ChangeAwareCache<TransformedItemContainer, TKey> cache, TransformResult[] transformedItems)
+        {
+            // check for errors and callback if a handler has been specified
+            var errors = transformedItems.Where(t => !t.Success).ToArray();
+            if (errors.Length > 0)
             {
-                case ChangeReason.Add:
-                case ChangeReason.Update:
-                    cache.AddOrUpdate(result.Container.Value, key);
-                    break;
-
-                case ChangeReason.Remove:
-                    cache.Remove(key);
-                    break;
-
-                case ChangeReason.Refresh:
-                    cache.Refresh(key);
-                    break;
+                errors.ForEach(t => _exceptionCallback?.Invoke(new Error<TSource, TKey>(t.Error, t.Change.Current, t.Change.Key)));
             }
-        }
 
-        var changes = cache.CaptureChanges();
-        var transformed = changes.Select(change => new Change<TDestination, TKey>(change.Reason, change.Key, change.Current.Destination, change.Previous.Convert(x => x.Destination), change.CurrentIndex, change.PreviousIndex));
-
-        return new ChangeSet<TDestination, TKey>(transformed);
-    }
-
-    private async Task<TransformResult> Transform(Change<TSource, TKey> change)
-    {
-        try
-        {
-            if (change.Reason == ChangeReason.Add || change.Reason == ChangeReason.Update)
+            foreach (var result in transformedItems.Where(t => t.Success))
             {
-                var destination = await _transformFactory(change.Current, change.Previous, change.Key).ConfigureAwait(false);
-                return new TransformResult(change, new TransformedItemContainer(change.Current, destination));
+                TKey key = result.Key;
+                switch (result.Change.Reason)
+                {
+                    case ChangeReason.Add:
+                    case ChangeReason.Update:
+                        cache.AddOrUpdate(result.Container.Value, key);
+                        break;
+
+                    case ChangeReason.Remove:
+                        cache.Remove(key);
+                        break;
+
+                    case ChangeReason.Refresh:
+                        cache.Refresh(key);
+                        break;
+                }
             }
 
-            return new TransformResult(change);
+            var changes = cache.CaptureChanges();
+            var transformed = changes.Select(change => new Change<TDestination, TKey>(change.Reason, change.Key, change.Current.Destination, change.Previous.Convert(x => x.Destination), change.CurrentIndex, change.PreviousIndex));
+
+            return new ChangeSet<TDestination, TKey>(transformed);
         }
-        catch (Exception ex)
+
+        private async Task<TransformResult> Transform(Change<TSource, TKey> change)
         {
-            // only handle errors if a handler has been specified
-            if (_exceptionCallback is not null)
+            try
             {
-                return new TransformResult(change, ex);
+                if (change.Reason == ChangeReason.Add || change.Reason == ChangeReason.Update)
+                {
+                    var destination = await _transformFactory(change.Current, change.Previous, change.Key).ConfigureAwait(false);
+                    return new TransformResult(change, new TransformedItemContainer(change.Current, destination));
+                }
+
+                return new TransformResult(change);
+            }
+            catch (Exception ex)
+            {
+                // only handle errors if a handler has been specified
+                if (_exceptionCallback is not null)
+                {
+                    return new TransformResult(change, ex);
+                }
+
+                throw;
+            }
+        }
+
+        private readonly struct TransformedItemContainer
+        {
+            public TransformedItemContainer(TSource source, TDestination destination)
+            {
+                Source = source;
+                Destination = destination;
             }
 
-            throw;
-        }
-    }
+            public TDestination Destination { get; }
 
-    private readonly struct TransformedItemContainer
-    {
-        public TransformedItemContainer(TSource source, TDestination destination)
+            public TSource Source { get; }
+        }
+
+        private sealed class TransformResult
         {
-            Source = source;
-            Destination = destination;
+            public TransformResult(Change<TSource, TKey> change, TransformedItemContainer container)
+            {
+                Change = change;
+                Container = container;
+                Success = true;
+                Key = change.Key;
+            }
+
+            public TransformResult(Change<TSource, TKey> change)
+            {
+                Change = change;
+                Container = Optional<TransformedItemContainer>.None;
+                Success = true;
+                Key = change.Key;
+            }
+
+            public TransformResult(Change<TSource, TKey> change, Exception error)
+            {
+                Change = change;
+                Error = error;
+                Success = false;
+                Key = change.Key;
+            }
+
+            public Change<TSource, TKey> Change { get; }
+
+            public Optional<TransformedItemContainer> Container { get; }
+
+            public Exception? Error { get; }
+
+            public TKey Key { get; }
+
+            public bool Success { get; }
         }
-
-        public TDestination Destination { get; }
-
-        public TSource Source { get; }
-    }
-
-    private sealed class TransformResult
-    {
-        public TransformResult(Change<TSource, TKey> change, TransformedItemContainer container)
-        {
-            Change = change;
-            Container = container;
-            Success = true;
-            Key = change.Key;
-        }
-
-        public TransformResult(Change<TSource, TKey> change)
-        {
-            Change = change;
-            Container = Optional<TransformedItemContainer>.None;
-            Success = true;
-            Key = change.Key;
-        }
-
-        public TransformResult(Change<TSource, TKey> change, Exception error)
-        {
-            Change = change;
-            Error = error;
-            Success = false;
-            Key = change.Key;
-        }
-
-        public Change<TSource, TKey> Change { get; }
-
-        public Optional<TransformedItemContainer> Container { get; }
-
-        public Exception? Error { get; }
-
-        public TKey Key { get; }
-
-        public bool Success { get; }
     }
 }
